@@ -1,16 +1,16 @@
-# FICHIER: _site-admin/config.yml
+# FICHIER: admin/config.yml
 backend:
   name: git-gateway
-  branch: main # ou master, selon votre dépôt GitHub
+  branch: main # Vérifiez que c'est bien 'main' et non 'master' sur votre dépôt GitHub
 
-media_folder: "images" # Dossier où Netlify CMS enregistre les images
+media_folder: "images"
 public_folder: "/images"
 
 collections:
-  - name: "produits" # Nom interne (correspond à la collection dans _config.yml)
+  - name: "produits"
     label: "Produits à Vendre"
-    folder: "_produits" # Le dossier où les fichiers produits seront stockés
-    create: true # Permet d'ajouter de nouveaux produits
+    folder: "_produits"
+    create: true
     slug: "{{slug}}"
     fields:
       - {label: "Nom de l'article", name: "title", widget: "string", required: true}
