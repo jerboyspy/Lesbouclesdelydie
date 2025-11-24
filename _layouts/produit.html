@@ -1,1 +1,40 @@
-e
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page.title }} | Ma Boutique</title>
+    <script async src="https://cdn.snipcart.com/themes/v3.4.0/default/snipcart.js"></script>
+    <link rel="stylesheet" href="https://cdn.snipcart.com/themes/v3.4.0/default/snipcart.css" />
+    <div hidden id="snipcart" data-api-key="VOTRE_CLÉ_API_PUBLIQUE_SNIPCART" data-config-modal-style="side"></div>
+</head>
+<body>
+    <header>
+        <h1>{{ site.title }}</h1>
+        <button class="snipcart-checkout">🛒 Voir mon panier</button>
+        <a href="/">Retour à l'accueil</a>
+    </header>
+
+    <div class="product-detail">
+        <h1>{{ page.title }}</h1>
+        <p class="price">{{ page.prix }} €</p>
+        
+        <p><strong>Taille :</strong> {{ page.taille }}</p>
+        <p><strong>Couleur :</strong> {{ page.couleur }}</p>
+        
+        <h2>Description</h2>
+        {{ content }} 
+
+        <button
+            class="snipcart-add-item"
+            data-item-id="{{ page.reference }}"
+            data-item-price="{{ page.prix }}"
+            data-item-name="{{ page.title }}"
+            data-item-description="{{ page.taille }} - {{ page.couleur }}"
+            data-item-url="{{ page.url }}">
+            Acheter pour {{ page.prix }} €
+        </button>
+    </div>
+    
+</body>
+</html>
