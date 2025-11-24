@@ -14,4 +14,4 @@ collections:
 
 # Exclure le dossier du CMS du rendu Jekyll
 exclude:
-  - _site-admin
+  - admin
