@@ -1,7 +1,7 @@
 # FICHIER: _site-admin/config.yml
 backend:
   name: git-gateway
-  branch: master # ou main, selon votre dépôt GitHub
+  branch: main # ou master, selon votre dépôt GitHub
 
 media_folder: "images" # Dossier où Netlify CMS enregistre les images
 public_folder: "/images"
