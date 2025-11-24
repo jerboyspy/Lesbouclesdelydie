@@ -1,0 +1,23 @@
+# FICHIER: _site-admin/config.yml
+backend:
+  name: git-gateway
+  branch: master # ou main, selon votre dépôt GitHub
+
+media_folder: "images" # Dossier où Netlify CMS enregistre les images
+public_folder: "/images"
+
+collections:
+  - name: "produits" # Nom interne (correspond à la collection dans _config.yml)
+    label: "Produits à Vendre"
+    folder: "_produits" # Le dossier où les fichiers produits seront stockés
+    create: true # Permet d'ajouter de nouveaux produits
+    slug: "{{slug}}"
+    fields:
+      - {label: "Nom de l'article", name: "title", widget: "string", required: true}
+      - {label: "Référence interne (SKU)", name: "reference", widget: "string", required: true}
+      - {label: "Prix (ex: 35.00)", name: "prix", widget: "number", required: true, value_type: "float"}
+      - {label: "Taille", name: "taille", widget: "string"}
+      - {label: "Couleur", name: "couleur", widget: "string"}
+      - {label: "Images", name: "images", widget: "image"}
+      - {label: "Description détaillée", name: "body", widget: "markdown"}
+      - {label: "Layout", name: "layout", widget: "hidden", default: "produit"}
