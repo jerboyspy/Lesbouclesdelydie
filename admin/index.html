@@ -5,6 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Admin Boutique</title>
 </head>
+<script>
+if (window.netlifyIdentity) {
+  window.netlifyIdentity.on("init", user => {
+    if (!user) {
+      window.netlifyIdentity.on("login", () => {
+        document.location.href = "/admin/";
+      });
+    }
+  });
+}
+</script>
 <body>
   <script src="https://unpkg.com/netlify-cms-app@2.15.72/dist/netlify-cms-app.js"></script>
 </body>
