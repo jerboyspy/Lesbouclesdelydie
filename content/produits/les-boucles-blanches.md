@@ -1,7 +1,7 @@
 ---
 title: Les boucles blanches
-price: 10
+price: 5
 available: true
 image: /images/img_7970.jpeg
 ---
-Test gggg
+Test pour voir si ça marche
