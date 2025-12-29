@@ -1,19 +1,24 @@
 backend:
   name: git-gateway
-  branch: main # Vérifie que ta branche s'appelle bien main sur GitHub
+  branch: main
 
-media_folder: "images" # Les photos seront stockées dans un dossier /images
+media_folder: "images"
 public_folder: "/images"
 
 collections:
   - name: "produits"
     label: "Mes Produits"
-    folder: "content/produits" # Les fichiers textes seront ici
+    folder: "content/produits"
     create: true
     slug: "{{slug}}"
     fields:
       - {label: "Nom du Produit", name: "title", widget: "string"}
       - {label: "Prix (€)", name: "price", widget: "number"}
       - {label: "En Stock ?", name: "available", widget: "boolean", default: true}
+      - label: "Badge spécial"
+        name: "badge"
+        widget: "select"
+        options: ["Aucun", "Nouveau", "Promo", "Coup de cœur"]
+        default: "Aucun"
       - {label: "Image du Produit", name: "image", widget: "image"}
-      - {label: "Description", name: "body", widget: "markdown", required: false}
+      - {label: "Description (matériaux, taille...)", name: "body", widget: "markdown", required: false}
