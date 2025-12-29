@@ -12,12 +12,12 @@
     <nav class="bg-white shadow-sm p-6 sticky top-0 z-50">
         <div class="max-w-6xl mx-auto flex justify-between items-center">
             <h1 class="text-2xl font-serif font-bold text-pink-600">Les Boucles de Lydie</h1>
-            <a href="/admin" class="text-xs text-gray-400 hover:underline">Accès Admin</a>
+            <a href="/admin" class="text-xs text-gray-400 hover:underline font-sans">Accès Admin</a>
         </div>
     </nav>
 
     <header class="py-10 text-center bg-pink-50">
-        <h2 class="text-3xl font-bold mb-2">Mes Créations</h2>
+        <h2 class="text-3xl font-bold mb-2">Mes Créations Artisantes</h2>
         <p class="text-gray-600 italic">Fait main avec passion</p>
     </header>
 
@@ -30,8 +30,6 @@
     <script>
         async function chargerBoutique() {
             const container = document.getElementById('produits-container');
-            
-            // Tes paramètres
             const repo = "jerboyspy/lesbouclesdelydie"; 
             const numeroWhatsApp = "33673460409"; 
 
@@ -40,7 +38,7 @@
                 const fichiers = await response.json();
 
                 if (!fichiers || fichiers.length === 0 || fichiers.message === "Not Found") {
-                    container.innerHTML = "<p class='col-span-full text-center'>Aucun produit trouvé. Connectez-vous à /admin pour en ajouter !</p>";
+                    container.innerHTML = "<p class='col-span-full text-center'>Aucun produit en ligne.</p>";
                     return;
                 }
 
@@ -51,42 +49,52 @@
                         const res = await fetch(fichier.download_url);
                         const contenu = await res.text();
                         
-                        // Nettoyage des données (Regex améliorée pour gérer les guillemets)
+                        // Extraction des données
                         const titre = contenu.match(/title: "(.*)"/)?.[1] || contenu.match(/title: (.*)/)?.[1] || "Produit";
                         const prix = contenu.match(/price: (.*)/)?.[1] || "0";
                         const image = contenu.match(/image: (.*)/)?.[1] || "";
                         const disponible = contenu.match(/available: (.*)/)?.[1] === "true";
+                        const badge = contenu.match(/badge: (.*)/)?.[1] || "Aucun";
+                        
+                        // Extraction de la description (après les tirets du haut)
+                        const description = contenu.split('---').pop().trim();
 
-                        // On affiche uniquement si c'est marqué comme disponible
+                        // Gestion du badge
+                        let badgeHTML = "";
+                        if (badge !== "Aucun") {
+                            let color = "bg-blue-500"; 
+                            if (badge === "Promo") color = "bg-red-500";
+                            if (badge === "Coup de cœur") color = "bg-pink-500";
+                            badgeHTML = `<span class="absolute top-3 left-3 ${color} text-white text-[10px] font-black px-2 py-1 rounded-full uppercase shadow-lg z-10">${badge}</span>`;
+                        }
+
                         if (disponible) {
                             container.innerHTML += `
-                                <div class="bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-xl transition-all border border-pink-100">
-                                    <img src="${image}" class="w-full h-72 object-cover" alt="${titre}">
+                                <div class="relative bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-2xl transition-all border border-pink-50 group">
+                                    ${badgeHTML}
+                                    <div class="overflow-hidden">
+                                        <img src="${image}" class="w-full h-80 object-cover group-hover:scale-110 transition-transform duration-500" alt="${titre}">
+                                    </div>
                                     <div class="p-5">
-                                        <h3 class="text-xl font-semibold mb-2">${titre}</h3>
-                                        <p class="text-pink-600 font-bold text-2xl mb-4">${prix} €</p>
-                                        <button onclick="window.open('https://wa.me/${numeroWhatsApp}?text=Bonjour, je souhaite commander : ${encodeURIComponent(titre)}')" 
-                                                class="w-full bg-green-500 text-white py-3 rounded-xl font-bold hover:bg-green-600 transition-colors flex justify-center items-center gap-2">
-                                            <span>Commander sur WhatsApp</span>
-                                        </button>
+                                        <h3 class="text-xl font-semibold mb-1">${titre}</h3>
+                                        <p class="text-gray-500 text-sm mb-3 line-clamp-2">${description}</p>
+                                        <div class="flex justify-between items-center mt-4">
+                                            <span class="text-pink-600 font-bold text-2xl">${prix} €</span>
+                                            <button onclick="window.open('https://wa.me/${numeroWhatsApp}?text=Bonjour, je souhaite commander : ${encodeURIComponent(titre)}')" 
+                                                    class="bg-green-500 text-white px-4 py-2 rounded-lg font-bold hover:bg-green-600 transition-colors text-sm">
+                                                Commander
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             `;
                         }
                     }
                 }
-                
-                // Si après la boucle rien n'est affiché (tous épuisés)
-                if (container.innerHTML === "") {
-                    container.innerHTML = "<p class='col-span-full text-center'>Tous les articles sont actuellement épuisés.</p>";
-                }
-
             } catch (error) {
-                console.error("Erreur:", error);
-                container.innerHTML = "<p class='col-span-full text-center text-red-500'>Une erreur est survenue lors du chargement.</p>";
+                container.innerHTML = "<p class='col-span-full text-center text-red-500'>Erreur de chargement.</p>";
             }
         }
-
         chargerBoutique();
     </script>
 
@@ -94,9 +102,7 @@
       if (window.netlifyIdentity) {
         window.netlifyIdentity.on("init", user => {
           if (!user) {
-            window.netlifyIdentity.on("login", () => {
-              document.location.href = "/admin/";
-            });
+            window.netlifyIdentity.on("login", () => { document.location.href = "/admin/"; });
           }
         });
       }
