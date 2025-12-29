@@ -1,23 +1,16 @@
-# FICHIER: admin/config.yml
 backend:
   name: git-gateway
-  branch: main # Vérifiez que c'est bien 'main' et non 'master' sur votre dépôt GitHub
-
+  branch: main
 media_folder: "images"
 public_folder: "/images"
-
 collections:
   - name: "produits"
-    label: "Produits à Vendre"
-    folder: "_produits"
+    label: "Produit"
+    folder: "content/produits"
     create: true
     slug: "{{slug}}"
     fields:
-      - {label: "Nom de l'article", name: "title", widget: "string", required: true}
-      - {label: "Référence interne (SKU)", name: "reference", widget: "string", required: true}
-      - {label: "Prix (ex: 35.00)", name: "prix", widget: "number", required: true, value_type: "float"}
-      - {label: "Taille", name: "taille", widget: "string"}
-      - {label: "Couleur", name: "couleur", widget: "string"}
-      - {label: "Images", name: "images", widget: "image"}
-      - {label: "Description détaillée", name: "body", widget: "markdown"}
-      - {label: "Layout", name: "layout", widget: "hidden", default: "produit"}
+      - {label: "Nom", name: "title", widget: "string"}
+      - {label: "Prix", name: "price", widget: "number"}
+      - {label: "Image", name: "image", widget: "image"}
+      - {label: "Description", name: "body", widget: "markdown"}
