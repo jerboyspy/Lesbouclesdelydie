@@ -1,21 +1,72 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8"><title>Les Boucles de lydie</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Les Boucles de Lydie</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 </head>
-<body class="bg-gray-50">
-    <nav class="bg-white shadow-sm p-4 text-center font-bold text-xl text-blue-600">Les boucles de Lydie</nav>
-    <div id="produits" class="max-w-5xl mx-auto p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+<body class="bg-gray-100">
+
+    <nav class="bg-white shadow-md p-6 mb-8">
+        <div class="max-w-5xl mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold text-gray-800">Ma Boutique Pro</h1>
+            <div class="text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded-full font-medium">
+                Panier: <span id="cart-count">0</span>
+            </div>
         </div>
+    </nav>
+
+    <div id="produits-container" class="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8 px-4">
+        <p class="text-center col-span-full">Chargement des articles...</p>
+    </div>
+
     <script>
-        // Code pour afficher les produits plus tard
-        if (window.netlifyIdentity) {
-            window.netlifyIdentity.on("init", user => {
-                if (!user) { window.netlifyIdentity.on("login", () => { document.location.href = "/admin/"; }); }
-            });
+        // Fonction pour transformer les fichiers créés par l'admin en affichage web
+        async function chargerBoutique() {
+            const container = document.getElementById('produits-container');
+            
+            try {
+                // On demande à GitHub la liste des fichiers dans le dossier produits
+                // REMPLACE 'TON_PSEUDO/NOM_DE_REPO' ci-dessous
+                const repo = "jerboyspy/lesbouclesdelydie"; 
+                const response = await fetch(`https://api.github.com/repos/${repo}/contents/content/produits`);
+                const fichiers = await response.json();
+
+                container.innerHTML = ""; // On vide le message de chargement
+
+                for (let fichier of fichiers) {
+                    if (fichier.name.endsWith('.md')) {
+                        const res = await fetch(fichier.download_url);
+                        const contenu = await res.text();
+                        
+                        // Extraction simple des infos (Nom, Prix, Image)
+                        const titre = contenu.match(/title: (.*)/)?.[1] || "Produit sans nom";
+                        const prix = contenu.match(/price: (.*)/)?.[1] || "0";
+                        const image = contenu.match(/image: (.*)/)?.[1] || "";
+
+                        container.innerHTML += `
+                            <div class="bg-white rounded-xl shadow-lg overflow-hidden hover:scale-105 transition-transform">
+                                <img src="${image}" class="w-full h-56 object-cover">
+                                <div class="p-4">
+                                    <h2 class="text-lg font-bold text-gray-800">${titre}</h2>
+                                    <p class="text-blue-600 font-black text-xl mt-2">${prix} €</p>
+                                    <button onclick="window.open('https://wa.me/VOTRE_NUMERO?text=Bonjour, je commande: ${titre}')" 
+                                            class="w-full mt-4 bg-green-500 text-white py-2 rounded-lg font-bold hover:bg-green-600">
+                                        Commander via WhatsApp
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    }
+                }
+            } catch (error) {
+                container.innerHTML = "Ajoutez votre premier produit dans l'interface /admin !";
+            }
         }
+
+        chargerBoutique();
     </script>
 </body>
 </html>
