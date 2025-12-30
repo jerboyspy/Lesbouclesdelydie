@@ -76,8 +76,8 @@
         const SUPABASE_KEY = "sb_publishable_c_U9tbQzawyqAVuLTEYWWA_XBW6Fbs6";
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         
-        // VERIFIE BIEN CE NOM DE REPO SUR TON GITHUB
-        const repo = "jerboyspy/lesbouclesdelydie"; 
+        // CORRECTION ICI : Majuscule sur "L" de "Lesbouclesdelydie"
+        const repo = "jerboyspy/Lesbouclesdelydie"; 
         
         let panier = [];
 
@@ -107,14 +107,13 @@
                         
                         let titre = "Bijou sans nom", prix = 0, img = "", dispo = true, stock = 1;
 
-                        // Extraction simplifiée
                         const lignes = txt.split('\n');
                         lignes.forEach(l => {
-                            if (l.startsWith('title:')) titre = l.replace('title:', '').replace(/"/g, '').trim();
-                            if (l.startsWith('price:')) prix = parseFloat(l.replace('price:', '').trim()) || 0;
-                            if (l.startsWith('image:')) img = l.replace('image:', '').replace(/"/g, '').trim();
-                            if (l.startsWith('available:')) dispo = l.includes('true');
-                            if (l.startsWith('stock:')) stock = parseInt(l.replace('stock:', '').trim());
+                            if (l.toLowerCase().includes('title:')) titre = l.split(':')[1].replace(/"/g, '').trim();
+                            if (l.toLowerCase().includes('price:')) prix = parseFloat(l.split(':')[1].trim()) || 0;
+                            if (l.toLowerCase().includes('image:')) img = l.split('image:')[1].replace(/"/g, '').trim();
+                            if (l.toLowerCase().includes('available:')) dispo = l.includes('true');
+                            if (l.toLowerCase().includes('stock:')) stock = parseInt(l.split(':')[1].trim());
                         });
 
                         if (dispo && (isNaN(stock) || stock > 0)) {
@@ -129,8 +128,7 @@
                     }
                 }
             } catch (e) { 
-                console.error(e);
-                container.innerHTML = "<p class='text-center col-span-full py-10'>Erreur de connexion au catalogue.</p>"; 
+                container.innerHTML = "<p class='text-center col-span-full py-10'>Erreur de catalogue. Vérifiez la connexion Git Gateway.</p>"; 
             }
         }
 
