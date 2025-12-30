@@ -7,26 +7,35 @@
   <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    /* Correction pour l'affichage mobile du CMS */
-    #nc-root [class*="AppHeaderContent"] { padding: 0 5px !important; }
-    #nc-root [class*="SidebarContainer"] { display: none; } /* Cache la barre latérale inutile sur mobile */
-    #nc-root [class*="CollectionContainer"] { padding: 10px !important; margin: 0 !important; }
-    #nc-root [class*="Card"] { margin-bottom: 10px !important; }
-    #nc-root [class*="EditorLayoutContainer"] { padding: 5px !important; }
-    iframe { max-width: 100% !important; }
+    /* Empêche le CMS de déborder et laisse de la place en bas pour le menu */
+    #nc-root { 
+      padding-bottom: 80px !important; 
+    }
+    /* Style pour corriger les bugs d'affichage du CMS sur iPhone */
+    [class*="AppHeaderContent"] { padding: 0 10px !important; }
+    [class*="EditorLayoutContainer"] { padding: 10px !important; }
+    /* Force le bouton Publier à rester visible */
+    [class*="AppHeader"] { z-index: 100 !important; }
   </style>
 </head>
 <body class="bg-gray-100">
 
-  <div class="bg-white p-3 shadow-md flex justify-between items-center sticky top-0 z-[1000]">
-    <span class="text-pink-600 font-bold text-sm">💎 Admin</span>
-    <div class="flex gap-2">
-      <a href="/admin/admin-commandes.html" class="bg-pink-600 text-white px-3 py-2 rounded-lg text-[10px] font-bold uppercase">📋 Commandes</a>
-      <a href="/" class="bg-gray-200 text-gray-600 px-3 py-2 rounded-lg text-[10px] font-bold uppercase">🏠 Site</a>
-    </div>
+  <div id="nc-root"></div>
+
+  <div class="fixed bottom-0 left-0 right-0 bg-white shadow-[0_-2px_10px_rgba(0,0,0,0.1)] p-4 flex justify-around items-center z-[2000] border-t border-gray-100">
+    <a href="/admin/admin-commandes.html" class="flex flex-col items-center gap-1 text-pink-600">
+        <span class="text-xl">📋</span>
+        <span class="text-[10px] font-black uppercase">Commandes</span>
+    </a>
+    
+    <div class="h-8 w-[1px] bg-gray-200"></div>
+
+    <a href="/" class="flex flex-col items-center gap-1 text-gray-500">
+        <span class="text-xl">🏠</span>
+        <span class="text-[10px] font-black uppercase">Voir Site</span>
+    </a>
   </div>
 
-  <div id="nc-root"></div>
   <script src="https://unpkg.com/decap-cms@^3.0.0/dist/decap-cms.js"></script>
 </body>
 </html>
