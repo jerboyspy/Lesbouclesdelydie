@@ -53,7 +53,7 @@
                     const base64Content = reader.result.split(',')[1];
                     const fileName = `img_${Date.now()}.${file.name.split('.').pop()}`;
 
-                    // On appelle la Netlify Function qu'on vient de créer
+                    // On appelle la Netlify Function qu'on a créée
                     const res = await fetch('/.netlify/functions/upload', {
                         method: 'POST',
                         body: JSON.stringify({ fileName, content: base64Content })
