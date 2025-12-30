@@ -2,12 +2,33 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Admin - Boutique</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin - Les Boucles de Lydie</title>
   <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Pour éviter que le CMS ne cache ta barre de navigation */
+    #nc-root { margin-top: 10px; }
+  </style>
 </head>
-<body>
+<body class="bg-gray-100">
+
+  <div class="bg-white p-4 shadow-md flex justify-between items-center sticky top-0 z-[1000]">
+    <div class="flex items-center gap-2">
+        <span class="text-pink-600 font-bold">💎 Lydie Admin</span>
+    </div>
+    <div class="flex gap-3">
+      <a href="/admin/admin-commandes.html" class="bg-pink-600 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-sm hover:bg-pink-700 transition-colors">
+          📋 Voir les Commandes
+      </a>
+      <a href="/" class="bg-gray-200 text-gray-600 px-4 py-2 rounded-xl text-xs font-bold hover:bg-gray-300">
+          🏠 Boutique
+      </a>
+    </div>
+  </div>
+
+  <div id="nc-root"></div>
+
   <script src="https://unpkg.com/decap-cms@^3.0.0/dist/decap-cms.js"></script>
 </body>
 </html>
-
-
