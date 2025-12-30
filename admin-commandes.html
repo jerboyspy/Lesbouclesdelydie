@@ -38,7 +38,7 @@
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         netlifyIdentity.on('login', user => {
-            if (user.email === "votre-email@exemple.com") { // METTEZ VOTRE EMAIL ICI
+            if (user.email === "lydie90@wanadoo.fr") { // METTEZ VOTRE EMAIL ICI
                 document.getElementById('admin-content').classList.remove('hidden');
                 document.getElementById('auth-btn').innerText = "Déconnexion";
                 chargerToutesLesCommandes();
