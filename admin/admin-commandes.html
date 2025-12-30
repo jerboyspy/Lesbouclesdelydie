@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Commandes - Lydie</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+</head>
+<body class="bg-gray-100 p-4 font-sans text-gray-800">
+
+    <div class="max-w-2xl mx-auto">
+        <header class="mb-8">
+            <div class="flex justify-between items-center mb-4">
+                <h1 class="text-2xl font-black text-pink-600 uppercase">Gestion Commandes</h1>
+                <button onclick="netlifyIdentity.open()" id="auth-btn" class="bg-white px-4 py-2 rounded-xl shadow-sm text-xs font-bold uppercase">Connexion</button>
+            </div>
+            <nav class="flex gap-2">
+                <a href="/" class="text-[10px] bg-gray-200 px-4 py-2 rounded-full font-bold uppercase text-gray-600 text-decoration-none">🏠 Boutique</a>
+                <a href="/admin/" class="text-[10px] bg-gray-800 text-white px-4 py-2 rounded-full font-bold uppercase text-decoration-none">💎 Gérer le Stock</a>
+            </nav>
+        </header>
+
+        <div id="admin-content" class="hidden">
+            <div class="grid grid-cols-2 gap-4 mb-8 text-center">
+                <div class="bg-orange-100 p-4 rounded-2xl border border-orange-200">
+                    <p class="text-[10px] text-orange-600 font-bold uppercase">À Valider</p>
+                    <p id="count-pending" class="text-3xl font-black">0</p>
+                </div>
+                <div class="bg-green-100 p-4 rounded-2xl border border-green-200">
+                    <p class="text-[10px] text-green-600 font-bold uppercase">Validées</p>
+                    <p id="count-done" class="text-3xl font-black">0</p>
+                </div>
+            </div>
+
+            <div id="liste-admin" class="space-y-4"></div>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = "https://rsebvgdneetbbmdchwil.supabase.co";
+        const SUPABASE_KEY = "sb_publishable_c_U9tbQzawyqAVuLTEYWWA_XBW6Fbs6";
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        netlifyIdentity.on('login', user => {
+            verifierEtCharger(user);
+        });
+
+        netlifyIdentity.on('logout', () => location.reload());
+
+        function verifierEtCharger(user) {
+            if (user && user.email.toLowerCase() === "lydie90@wanadoo.fr") {
+                document.getElementById('admin-content').classList.remove('hidden');
+                document.getElementById('auth-btn').innerText = "🚪 Déconnexion";
+                chargerToutesLesCommandes();
+            } else {
+                alert("Accès refusé.");
+                netlifyIdentity.logout();
+            }
+        }
+
+        async function chargerToutesLesCommandes() {
+            const { data } = await _supabase.from('commandes').select('*').order('created_at', { ascending: false });
+            if (data) {
+                const list = document.getElementById('liste-admin');
+                document.getElementById('count-pending').innerText = data.filter(c => c.statut === 'En attente').length;
+                document.getElementById('count-done').innerText = data.filter(c => c.statut !== 'En attente').length;
+
+                list.innerHTML = data.map(c => `
+                    <div class="bg-white p-5 rounded-3xl shadow-sm border-l-8 ${c.statut === 'Payée' ? 'border-green-400' : 'border-orange-400'}">
+                        <div class="flex justify-between items-start mb-3">
+                            <div>
+                                <p class="text-xs font-bold text-gray-400 truncate w-40">${c.client_email}</p>
+                                <p class="text-[10px] text-gray-300">${new Date(c.created_at).toLocaleString()}</p>
+                            </div>
+                            <span class="text-[9px] font-black px-2 py-1 rounded-full bg-gray-100 uppercase">${c.statut}</span>
+                        </div>
+                        <p class="text-sm bg-pink-50 text-pink-700 p-3 rounded-xl mb-3 font-medium italic">"${c.contenu}"</p>
+                        <p class="text-xl font-black mb-4">${c.total} € <span class="text-[10px] font-normal text-gray-400">(${c.mode_livraison})</span></p>
+                        
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="changerStatut(${c.id}, 'Validée')" class="bg-pink-500 text-white py-3 rounded-xl text-[9px] font-bold uppercase hover:bg-pink-600 shadow-md">Valider Wero</button>
+                            <button onclick="changerStatut(${c.id}, 'Payée')" class="bg-gray-800 text-white py-3 rounded-xl text-[9px] font-bold uppercase hover:bg-black">Marquer Payée</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
+
+        async function changerStatut(id, ns) {
+            const { error } = await _supabase.from('commandes').update({ statut: ns }).eq('id', id);
+            if (!error) chargerToutesLesCommandes();
+        }
+
+        // Vérification au chargement
+        const currentUser = netlifyIdentity.currentUser();
+        if(currentUser) verifierEtCharger(currentUser);
+    </script>
+</body>
+</html>
