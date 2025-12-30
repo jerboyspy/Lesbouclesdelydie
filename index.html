@@ -18,33 +18,41 @@
     <nav class="bg-white shadow-sm p-4 sticky top-0 z-50 flex justify-between items-center">
         <h1 class="text-xl font-bold text-pink-600">Les Boucles de Lydie</h1>
         <div class="flex gap-3">
-            <button onclick="netlifyIdentity.open()" class="text-[10px] bg-gray-100 px-3 py-2 rounded font-bold">👤 CONNEXION</button>
-            <button onclick="toggleModal('cart-modal')" class="relative p-2 bg-pink-100 rounded-full">🛒 <span id="cart-count" class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] px-1 rounded-full">0</span></button>
+            <button onclick="netlifyIdentity.open()" id="user-btn" class="text-[10px] bg-gray-100 px-3 py-2 rounded font-bold uppercase">👤 Connexion</button>
+            <button onclick="toggleModal('cart-modal')" class="relative p-2 bg-pink-100 rounded-full">
+                🛒 <span id="cart-count" class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] px-1 rounded-full">0</span>
+            </button>
         </div>
     </nav>
 
     <main class="max-w-6xl mx-auto p-4 mb-20">
-        <div id="produits-container" class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center py-10">
-            <p class="col-span-full italic text-gray-400">Initialisation de la boutique...</p>
+        <div id="status-msg" class="text-center py-10 hidden">
+            <div class="bg-pink-50 p-6 rounded-2xl border border-pink-100">
+                <p class="text-pink-600 font-bold mb-4">Connexion nécessaire pour voir la boutique</p>
+                <button onclick="netlifyIdentity.open()" class="bg-pink-500 text-white px-6 py-2 rounded-xl font-bold uppercase text-sm">Se connecter</button>
+            </div>
+        </div>
+
+        <div id="produits-container" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <p class="col-span-full text-center py-20 italic text-gray-400">Chargement de la collection...</p>
+        </div>
+        
+        <div id="retry-btn" class="hidden text-center mt-8">
+            <button onclick="chargerBoutique()" class="text-xs bg-gray-200 px-4 py-2 rounded-full font-bold text-gray-600">🔄 Actualiser la collection</button>
         </div>
     </main>
 
-    <a href="https://wa.me/33673460409" target="_blank" style="position:fixed;bottom:20px;right:20px;background:#25d366;color:white;padding:12px 20px;border-radius:50px;z-index:100;text-decoration:none;font-weight:bold;box-shadow:0 4px 10px rgba(0,0,0,0.2);">💬 WhatsApp</a>
+    <a href="https://wa.me/33673460409" target="_blank" style="position:fixed;bottom:20px;right:20px;background:#25d366;color:white;padding:12px 20px;border-radius:50px;z-index:100;text-decoration:none;font-weight:bold;box-shadow:0 4px 10px rgba(0,0,0,0.2);display:flex;align-items:center;gap:8px;">
+        <span>💬 WhatsApp</span>
+    </a>
 
     <div id="cart-modal" class="modal fixed inset-0 bg-black/50 z-[110] flex-col justify-end">
         <div class="bg-white w-full max-w-md mx-auto rounded-t-3xl p-6 shadow-2xl">
             <h3 class="text-xl font-bold text-pink-600 mb-4">Mon Panier</h3>
-            <div id="cart-items" class="space-y-2 mb-4"></div>
-            <div class="bg-gray-50 p-3 rounded-lg mb-4 text-sm">
-                <p class="font-bold mb-1">Livraison :</p>
-                <select id="shipping-select" onchange="majPanier()" class="w-full p-2 border rounded bg-white">
-                    <option value="0">Remise en main propre (Gratuit)</option>
-                    <option value="5.50">Envoi Suivi (+ 5,50 €)</option>
-                </select>
-            </div>
-            <div class="flex justify-between font-bold text-lg mb-4"><span>Total :</span><span id="cart-total">0.00 €</span></div>
+            <div id="cart-items" class="space-y-2 mb-4 max-h-60 overflow-y-auto"></div>
+            <div class="bg-gray-50 p-3 rounded-lg mb-4 text-sm font-bold">Total : <span id="cart-total" class="text-pink-600">0.00 €</span></div>
             <button onclick="passerCommande()" class="w-full bg-green-500 text-white py-4 rounded-xl font-bold uppercase">Commander</button>
-            <button onclick="toggleModal('cart-modal')" class="w-full text-gray-400 mt-3 text-sm">Fermer</button>
+            <button onclick="toggleModal('cart-modal')" class="w-full text-gray-400 mt-3 text-sm italic">Continuer mes achats</button>
         </div>
     </div>
 
@@ -53,73 +61,105 @@
         const _supabase = supabase.createClient("https://rsebvgdneetbbmdchwil.supabase.co", "sb_publishable_c_U9tbQzawyqAVuLTEYWWA_XBW6Fbs6");
         let panier = [];
 
-        // Gestion Admin et Chargement
+        // Initialisation Netlify Identity
         netlifyIdentity.on('init', user => {
-            if(user && user.email === "lydie90@wanadoo.fr") document.getElementById('admin-bar').classList.remove('hidden');
-            chargerBoutique();
+            if (user) {
+                if(user.email === "lydie90@wanadoo.fr") document.getElementById('admin-bar').classList.remove('hidden');
+                document.getElementById('user-btn').innerText = "👤 " + user.user_metadata.full_name || "Moi";
+                chargerBoutique();
+            } else {
+                document.getElementById('status-msg').classList.remove('hidden');
+                document.getElementById('produits-container').innerHTML = "";
+            }
         });
+
         netlifyIdentity.on('login', () => location.reload());
+        netlifyIdentity.on('logout', () => location.reload());
 
         async function chargerBoutique() {
             const container = document.getElementById('produits-container');
+            const retry = document.getElementById('retry-btn');
+            container.innerHTML = "<p class='col-span-full text-center py-20 italic text-gray-400'>Récupération des bijoux...</p>";
+            
             try {
-                // Utilisation de l'API Netlify pour lire GitHub sans blocage
-                const res = await fetch(`https://api.github.com/repos/${repo}/contents/content/produits`);
+                const res = await fetch(`https://api.github.com/repos/${repo}/contents/content/produits?t=${Date.now()}`);
                 const fichiers = await res.json();
                 
-                if(!Array.isArray(fichiers)) throw new Error();
+                if(!Array.isArray(fichiers)) throw new Error("Accès refusé");
+                
                 container.innerHTML = "";
+                retry.classList.remove('hidden');
 
                 for (let f of fichiers) {
                     if (f.name.endsWith('.md')) {
                         const r = await fetch(f.download_url);
                         const t = await r.text();
                         const data = {};
+                        
+                        // Extraction plus souple
                         t.split('\n').forEach(l => {
                             if(l.includes(':')) {
-                                const p = l.split(':');
-                                data[p[0].trim().toLowerCase()] = p[1].trim().replace(/"/g, '');
+                                const splitPoint = l.indexOf(':');
+                                const key = l.substring(0, splitPoint).trim().toLowerCase();
+                                const val = l.substring(splitPoint + 1).trim().replace(/"/g, '');
+                                data[key] = val;
                             }
                         });
 
-                        if (data.available === "true" && parseInt(data.stock) > 0) {
+                        if (data.available === "true" && (parseInt(data.stock) > 0 || !data.stock)) {
                             container.innerHTML += `
-                                <div class="bg-white p-3 rounded-xl shadow border relative">
-                                    ${data.badge ? `<span class="absolute top-2 left-2 bg-pink-500 text-white text-[8px] px-2 py-1 rounded-full font-bold">${data.badge}</span>` : ''}
+                                <div class="bg-white p-3 rounded-xl shadow-sm border relative flex flex-col justify-between h-full">
+                                    ${data.badge && data.badge !== "Aucun" ? `<span class="absolute top-2 left-2 bg-pink-500 text-white text-[8px] px-2 py-1 rounded-full font-bold z-10">${data.badge}</span>` : ''}
                                     <img src="${data.image}" class="w-full h-40 object-cover rounded-lg mb-2">
-                                    <h4 class="font-bold text-xs truncate">${data.title}</h4>
-                                    <p class="text-pink-600 font-bold">${parseFloat(data.price).toFixed(2)} €</p>
-                                    <button onclick="ajouterAuPanier('${data.title.replace(/'/g, "\\'")}', ${data.price})" class="w-full bg-pink-500 text-white py-2 rounded-lg mt-2 text-[10px] font-bold uppercase">Ajouter</button>
+                                    <h4 class="font-bold text-[11px] leading-tight mb-1">${data.title}</h4>
+                                    <p class="text-pink-600 font-black text-md mb-2">${parseFloat(data.price).toFixed(2)} €</p>
+                                    <button onclick="ajouterAuPanier('${data.title.replace(/'/g, "\\'")}', ${data.price})" class="w-full bg-pink-500 text-white py-2 rounded-lg text-[10px] font-bold uppercase">Ajouter</button>
                                 </div>`;
                         }
                     }
                 }
             } catch (e) { 
-                container.innerHTML = "<div class='col-span-full bg-red-50 p-4 rounded-lg text-red-600 text-sm'><b>Connexion nécessaire</b><br>Cliquez sur 👤 CONNEXION en haut pour voir les bijoux.</div>";
+                container.innerHTML = "<p class='col-span-full text-center py-10 text-red-400'>Erreur de connexion GitHub. Assurez-vous d'être bien connecté.</p>";
             }
         }
 
-        function ajouterAuPanier(n, p) { panier.push({nom:n, prix:p}); majPanier(); toggleModal('cart-modal', true); }
+        function ajouterAuPanier(n, p) { 
+            panier.push({nom:n, prix:p}); 
+            majPanier(); 
+            toggleModal('cart-modal', true); 
+        }
+
         function majPanier() {
             document.getElementById('cart-count').innerText = panier.length;
-            const frais = parseFloat(document.getElementById('shipping-select').value);
             let h = ""; let total = 0;
-            panier.forEach((i, idx) => { total += i.prix; h += `<div class="flex justify-between text-sm border-b pb-1"><span>${i.nom}</span><button onclick="panier.splice(${idx},1);majPanier()" class="text-red-500">✕</button></div>`; });
-            document.getElementById('cart-items').innerHTML = h || "Panier vide";
-            document.getElementById('cart-total').innerText = (total + frais).toFixed(2) + " €";
+            panier.forEach((i, idx) => { 
+                total += i.prix; 
+                h += `<div class="flex justify-between items-center text-xs bg-gray-50 p-2 rounded-lg"><span>${i.nom}</span><button onclick="panier.splice(${idx},1);majPanier()" class="text-red-500 font-bold p-1">✕</button></div>`; 
+            });
+            document.getElementById('cart-items').innerHTML = h || "<p class='text-center text-gray-400 py-4'>Le panier est vide</p>";
+            document.getElementById('cart-total').innerText = total.toFixed(2) + " €";
         }
 
         async function passerCommande() {
             const user = netlifyIdentity.currentUser();
             if (!user) return netlifyIdentity.open();
+            if (panier.length === 0) return;
+
             const total = document.getElementById('cart-total').innerText;
             const contenu = panier.map(i => i.nom).join(', ');
-            await _supabase.from('commandes').insert([{ client_email: user.email, contenu: contenu, total: total, statut: 'En attente' }]);
-            window.open(`https://wa.me/33673460409?text=Bonjour Lydie, commande de ${user.email} : ${contenu} (Total: ${total})`);
-            panier = []; majPanier(); toggleModal('cart-modal', false);
+            
+            try {
+                await _supabase.from('commandes').insert([{ client_email: user.email, contenu: contenu, total: total, statut: 'En attente' }]);
+                window.open(`https://wa.me/33673460409?text=${encodeURIComponent("Bonjour Lydie, commande de " + user.email + " : " + contenu + " (Total: " + total + ")")}`);
+                panier = []; majPanier(); toggleModal('cart-modal', false);
+            } catch(e) { alert("Erreur lors de l'envoi"); }
         }
 
-        function toggleModal(id, force) { const m = document.getElementById(id); if (force !== undefined) force ? m.classList.add('active') : m.classList.remove('active'); else m.classList.toggle('active'); }
+        function toggleModal(id, force) { 
+            const m = document.getElementById(id); 
+            if (force !== undefined) force ? m.classList.add('active') : m.classList.remove('active'); 
+            else m.classList.toggle('active'); 
+        }
     </script>
 </body>
 </html>
