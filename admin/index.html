@@ -8,26 +8,42 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 </head>
-<body class="bg-gray-50 p-4 pb-20">
+<body class="bg-gray-50 p-4 pb-24 text-gray-800 font-sans">
+
+    <div class="max-w-lg mx-auto flex justify-between items-center mb-6 px-2">
+        <a href="/" class="flex items-center gap-2 bg-white px-4 py-2 rounded-2xl shadow-sm border border-gray-100 text-sm font-bold text-gray-600 hover:bg-pink-50 transition">
+            🏠 <span class="hidden sm:inline">Boutique</span>
+        </a>
+        
+        <h2 class="text-xl font-black text-pink-600 italic">Admin Lydie</h2>
+
+        <a href="/admin/admin-commandes" class="flex items-center gap-2 bg-white px-4 py-2 rounded-2xl shadow-sm border border-gray-100 text-sm font-bold text-gray-600 hover:bg-pink-50 transition">
+            📋 <span class="hidden sm:inline">Commandes</span>
+        </a>
+    </div>
+
     <div class="max-w-lg mx-auto">
-        <div class="bg-white p-6 rounded-3xl shadow-xl mb-8 border border-pink-100 text-center">
-            <h2 class="text-2xl font-black text-pink-600 mb-6 italic">Espace Admin Lydie</h2>
-            <form id="produit-form" class="space-y-4 text-left">
-                <input type="text" id="titre" class="w-full p-4 bg-gray-100 rounded-2xl border-none" placeholder="Nom du bijou" required>
+        <div class="bg-white p-6 rounded-3xl shadow-xl mb-8 border border-pink-100">
+            <h3 class="text-lg font-bold mb-4 text-center">Ajouter un nouveau bijou</h3>
+            <form id="produit-form" class="space-y-4">
+                <input type="text" id="titre" class="w-full p-4 bg-gray-100 rounded-2xl border-none focus:ring-2 focus:ring-pink-300" placeholder="Nom du bijou" required>
                 <div class="grid grid-cols-2 gap-4">
-                    <input type="number" step="0.01" id="prix" class="w-full p-4 bg-gray-100 rounded-2xl border-none" placeholder="Prix (€)" required>
-                    <input type="number" id="stock" class="w-full p-4 bg-gray-100 rounded-2xl border-none" placeholder="Stock" required>
+                    <input type="number" step="0.01" id="prix" class="w-full p-4 bg-gray-100 rounded-2xl border-none focus:ring-2 focus:ring-pink-300" placeholder="Prix (€)" required>
+                    <input type="number" id="stock" class="w-full p-4 bg-gray-100 rounded-2xl border-none focus:ring-2 focus:ring-pink-300" placeholder="Stock" required>
                 </div>
                 <div class="bg-pink-50 p-5 rounded-2xl border-2 border-dashed border-pink-200">
                     <input type="file" id="fileInput" accept="image/*" class="text-xs">
                 </div>
-                <button type="submit" id="btn-submit" class="w-full bg-pink-500 text-white py-5 rounded-2xl font-black uppercase shadow-lg">🚀 Mettre en ligne</button>
+                <button type="submit" id="btn-submit" class="w-full bg-pink-500 text-white py-5 rounded-2xl font-black uppercase shadow-lg hover:bg-pink-600 transition">🚀 Mettre en ligne</button>
             </form>
         </div>
+
+        <h3 class="font-bold mb-3 px-2">Gestion du stock</h3>
         <div id="produits-list" class="space-y-3"></div>
     </div>
 
     <script>
+        // Ta configuration Supabase reste la même
         const _supabase = supabase.createClient("https://rsebvgdneetbbmdchwil.supabase.co", "sb_publishable_c_U9tbQzawyqAVuLTEYWWA_XBW6Fbs6");
 
         netlifyIdentity.on('init', user => { if (!user) window.location.href = "/"; chargerListe(); });
@@ -73,10 +89,7 @@
                 });
 
                 const result = await res.json();
-
-                if(!res.ok) {
-                    throw new Error(result.error || "Erreur inconnue");
-                }
+                if(!res.ok) throw new Error(result.error || "Erreur serveur");
 
                 await _supabase.from('produits').insert([{
                     titre: document.getElementById('titre').value,
@@ -88,8 +101,7 @@
                 alert("Bijou ajouté !");
                 location.reload();
             } catch (err) {
-                // CETTE ALERTE NOUS DIRA LE PROBLÈME
-                alert("Détail technique : " + err.message);
+                alert("Erreur : " + err.message);
                 btn.disabled = false;
                 btn.innerText = "🚀 Mettre en ligne";
             }
@@ -98,18 +110,24 @@
         async function chargerListe() {
             const { data } = await _supabase.from('produits').select('*').order('id', { ascending: false });
             document.getElementById('produits-list').innerHTML = data ? data.map(p => `
-                <div class="flex items-center justify-between p-3 bg-white rounded-2xl shadow-sm border">
+                <div class="flex items-center justify-between p-3 bg-white rounded-2xl shadow-sm border border-gray-100">
                     <div class="flex items-center gap-3">
                         <img src="${p.image}" class="w-12 h-12 rounded-xl object-cover">
-                        <span class="text-xs font-bold">${p.titre}</span>
+                        <div>
+                            <p class="text-xs font-bold leading-tight">${p.titre}</p>
+                            <p class="text-[10px] text-gray-400">${p.prix}€ - Stock: ${p.stock}</p>
+                        </div>
                     </div>
-                    <button onclick="supprimer(${p.id})" class="text-red-400 p-2">🗑️</button>
+                    <button onclick="supprimer(${p.id})" class="text-red-300 hover:text-red-500 p-2 text-lg">🗑️</button>
                 </div>
             `).join('') : '';
         }
 
         async function supprimer(id) {
-            if(confirm("Supprimer ?")) { await _supabase.from('produits').delete().eq('id', id); chargerListe(); }
+            if(confirm("Supprimer ce bijou ?")) {
+                await _supabase.from('produits').delete().eq('id', id);
+                chargerListe();
+            }
         }
     </script>
 </body>
