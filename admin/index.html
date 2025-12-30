@@ -2,27 +2,30 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Admin - Les Boucles de Lydie</title>
   <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    /* Pour éviter que le CMS ne cache ta barre de navigation */
-    #nc-root { margin-top: 10px; }
+    /* Ajustements pour que le CMS soit utilisable sur mobile */
+    #nc-root div[class*="AppHeaderContent"] { padding: 0 10px; }
+    #nc-root button { font-size: 14px !important; }
+    /* Force l'éditeur à ne pas déborder */
+    [class*="EditorLayoutContainer"] { padding: 10px !important; }
+    /* Cache les éléments trop larges qui polluent l'écran mobile */
+    [class*="PaneContainer"] { overflow-x: hidden; }
   </style>
 </head>
 <body class="bg-gray-100">
 
-  <div class="bg-white p-4 shadow-md flex justify-between items-center sticky top-0 z-[1000]">
-    <div class="flex items-center gap-2">
-        <span class="text-pink-600 font-bold">💎 Lydie Admin</span>
-    </div>
-    <div class="flex gap-3">
-      <a href="/admin/admin-commandes.html" class="bg-pink-600 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-sm hover:bg-pink-700 transition-colors">
-          📋 Voir les Commandes
+  <div class="bg-white p-3 shadow-md flex justify-between items-center sticky top-0 z-[1000]">
+    <span class="text-pink-600 font-bold text-sm">💎 Admin</span>
+    <div class="flex gap-2">
+      <a href="/admin/admin-commandes.html" class="bg-pink-600 text-white px-3 py-2 rounded-lg text-[10px] font-bold uppercase shadow-sm">
+          📋 Commandes
       </a>
-      <a href="/" class="bg-gray-200 text-gray-600 px-4 py-2 rounded-xl text-xs font-bold hover:bg-gray-300">
-          🏠 Boutique
+      <a href="/" class="bg-gray-200 text-gray-600 px-3 py-2 rounded-lg text-[10px] font-bold uppercase">
+          🏠 Site
       </a>
     </div>
   </div>
