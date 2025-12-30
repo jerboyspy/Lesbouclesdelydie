@@ -1,7 +1,7 @@
 const { Octokit } = require("@octokit/rest");
 
 exports.handler = async (event) => {
-  // On n'accepte que les envois (POST)
+  // Autoriser uniquement les requêtes POST
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, body: "Méthode non autorisée" };
   }
@@ -9,26 +9,34 @@ exports.handler = async (event) => {
   try {
     const { fileName, content } = JSON.parse(event.body);
     
-    // On utilise le Token caché dans Netlify (MY_GITHUB_TOKEN)
-    const octokit = new Octokit({
-      auth: process.env.MY_GITHUB_TOKEN
-    });
+    // Vérification de la présence du token
+    const token = process.env.MY_GITHUB_TOKEN;
+    if (!token) {
+      throw new Error("Le jeton MY_GITHUB_TOKEN est manquant dans Netlify");
+    }
 
-    // On envoie l'image dans le dossier /images de ton GitHub
+    const octokit = new Octokit({ auth: token });
+
+    // Envoi vers GitHub
     await octokit.repos.createOrUpdateFileContents({
       owner: "jerboyspy",
       repo: "Lesbouclesdelydie",
       path: `images/${fileName}`,
-      message: `Admin : Ajout photo ${fileName}`,
+      message: `Admin : ajout photo ${fileName}`,
       content: content,
-      branch: "main"
+      branch: "main" // Vérifiez bien que votre branche s'appelle 'main'
     });
 
     return {
       statusCode: 200,
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ url: `/images/${fileName}` }),
     };
   } catch (error) {
-    return { statusCode: 500, body: error.message };
+    console.error("Erreur détaillée:", error.message);
+    return { 
+      statusCode: 500, 
+      body: JSON.stringify({ error: error.message }) 
+    };
   }
 };
