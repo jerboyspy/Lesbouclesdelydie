@@ -8,11 +8,10 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 </head>
-<body class="bg-gray-50 p-4 pb-20 text-gray-800 font-sans">
+<body class="bg-gray-50 p-4 pb-20">
     <div class="max-w-lg mx-auto">
         <div class="bg-white p-6 rounded-3xl shadow-xl mb-8 border border-pink-100 text-center">
             <h2 class="text-2xl font-black text-pink-600 mb-6 italic">Espace Admin Lydie</h2>
-            
             <form id="produit-form" class="space-y-4 text-left">
                 <input type="text" id="titre" class="w-full p-4 bg-gray-100 rounded-2xl border-none" placeholder="Nom du bijou" required>
                 <div class="grid grid-cols-2 gap-4">
@@ -31,51 +30,68 @@
     <script>
         const _supabase = supabase.createClient("https://rsebvgdneetbbmdchwil.supabase.co", "sb_publishable_c_U9tbQzawyqAVuLTEYWWA_XBW6Fbs6");
 
-        netlifyIdentity.on('init', user => { 
-            if (!user) window.location.href = "/"; 
-            chargerListe(); 
-        });
+        netlifyIdentity.on('init', user => { if (!user) window.location.href = "/"; chargerListe(); });
+
+        // Fonction pour compresser l'image
+        async function compressImage(file) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.src = event.target.result;
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const MAX_WIDTH = 800; // Taille idéale pour le web
+                        let width = img.width;
+                        let height = img.height;
+
+                        if (width > MAX_WIDTH) {
+                            height *= MAX_WIDTH / width;
+                            width = MAX_WIDTH;
+                        }
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        // Compression à 70% de qualité (léger et beau)
+                        resolve(canvas.toDataURL('image/jpeg', 0.7).split(',')[1]);
+                    };
+                };
+            });
+        }
 
         document.getElementById('produit-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = document.getElementById('btn-submit');
             const file = document.getElementById('fileInput').files[0];
-            
-            if(!file) return alert("Veuillez choisir une photo !");
+            if(!file) return alert("Photo manquante !");
 
             btn.disabled = true;
-            btn.innerText = "⏳ ENVOI EN COURS...";
+            btn.innerText = "⏳ COMPRESSION & ENVOI...";
 
             try {
-                const reader = new FileReader();
-                reader.readAsDataURL(file);
-                reader.onload = async () => {
-                    const base64Content = reader.result.split(',')[1];
-                    const fileName = `img_${Date.now()}.${file.name.split('.').pop()}`;
+                const base64Content = await compressImage(file);
+                const fileName = `img_${Date.now()}.jpg`;
 
-                    // On appelle la Netlify Function qu'on a créée
-                    const res = await fetch('/.netlify/functions/upload', {
-                        method: 'POST',
-                        body: JSON.stringify({ fileName, content: base64Content })
-                    });
+                const res = await fetch('/.netlify/functions/upload', {
+                    method: 'POST',
+                    body: JSON.stringify({ fileName, content: base64Content })
+                });
 
-                    if(!res.ok) throw new Error("Erreur lors de l'envoi de la photo.");
+                if(!res.ok) throw new Error("Erreur serveur");
 
-                    const uploadData = await res.json();
+                const uploadData = await res.json();
 
-                    // On enregistre dans Supabase avec le lien de l'image
-                    const { error } = await _supabase.from('produits').insert([{
-                        titre: document.getElementById('titre').value,
-                        prix: parseFloat(document.getElementById('prix').value),
-                        stock: parseInt(document.getElementById('stock').value),
-                        image: uploadData.url
-                    }]);
+                await _supabase.from('produits').insert([{
+                    titre: document.getElementById('titre').value,
+                    prix: parseFloat(document.getElementById('prix').value),
+                    stock: parseInt(document.getElementById('stock').value),
+                    image: uploadData.url
+                }]);
 
-                    if (error) throw error;
-                    
-                    alert("Bijou ajouté avec succès !");
-                    location.reload();
-                };
+                alert("Bijou ajouté !");
+                location.reload();
             } catch (err) {
                 alert("Erreur : " + err.message);
                 btn.disabled = false;
@@ -97,10 +113,7 @@
         }
 
         async function supprimer(id) {
-            if(confirm("Supprimer ?")) {
-                await _supabase.from('produits').delete().eq('id', id);
-                chargerListe();
-            }
+            if(confirm("Supprimer ?")) { await _supabase.from('produits').delete().eq('id', id); chargerListe(); }
         }
     </script>
 </body>
