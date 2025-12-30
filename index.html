@@ -44,7 +44,7 @@
 
     <main class="max-w-6xl mx-auto p-4 mb-20">
         <div id="produits-container" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            <p class="text-center col-span-full py-10 text-gray-400 italic">Chargement des bijoux...</p>
+            <p class="text-center col-span-full py-10 text-gray-400 italic">Chargement de la collection...</p>
         </div>
     </main>
 
@@ -112,14 +112,18 @@
                         const res = await fetch(f.download_url);
                         const txt = await res.text();
                         
-                        // Analyse du tableau Markdown
-                        const rows = txt.split('\n').filter(r => r.includes('|'));
-                        if (rows.length >= 3) {
-                            const dataRow = rows[2].split('|').map(cell => cell.trim());
-                            // Ordre des colonnes selon ton image : Title | Price | Available | Badge | Image
+                        // Nettoyage et analyse de toutes les lignes contenant des barres |
+                        const rows = txt.split('\n')
+                                        .map(r => r.trim())
+                                        .filter(r => r.startsWith('|') && !r.includes('---') && !r.toLowerCase().includes('title'));
+
+                        if (rows.length > 0) {
+                            const dataRow = rows[0].split('|').map(cell => cell.trim());
+                            
+                            // Colonnes : [0]vide | [1]Titre | [2]Prix | [3]Dispo | [4]Badge | [5]Image
                             const titre = dataRow[1];
                             const prix = parseFloat(dataRow[2]);
-                            const dispo = dataRow[3].toLowerCase() === 'true';
+                            const dispo = dataRow[3] ? dataRow[3].toLowerCase() === 'true' : false;
                             const img = dataRow[5];
 
                             if (titre && dispo) {
@@ -134,7 +138,13 @@
                         }
                     }
                 }
-            } catch (e) { container.innerHTML = "Erreur de chargement des bijoux."; }
+                if (container.innerHTML === "") {
+                    container.innerHTML = "<p class='text-center col-span-full py-10 text-gray-400'>Aucun bijou disponible pour le moment.</p>";
+                }
+            } catch (e) { 
+                console.error(e);
+                container.innerHTML = "Erreur de connexion au catalogue."; 
+            }
         }
 
         function ajouterAuPanier(n, p) { panier.push({ nom: n, prix: p }); majPanier(); toggleModal('cart-modal', true); }
@@ -181,8 +191,6 @@
                         <p class="text-[10px] text-gray-500">${c.contenu}</p>
                         ${c.statut === 'Validée' ? `<button onclick="alert('Wero au 0673460409 (Lydie). Merci !')" class="mt-2 w-full bg-blue-600 text-white py-2 rounded-lg text-[10px] font-bold uppercase">Payer par Wero</button>` : ''}
                     </div>`).join('');
-            } else {
-                document.getElementById('liste-commandes').innerHTML = "<p class='text-gray-400 italic'>Aucune commande pour le moment.</p>";
             }
         }
 
