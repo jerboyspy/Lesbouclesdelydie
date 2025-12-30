@@ -10,7 +10,6 @@
     <style>
         .modal { display: none !important; }
         .modal.active { display: flex !important; }
-        .whatsapp-float { position: fixed; bottom: 20px; right: 20px; background-color: #25d366; color: white; border-radius: 50px; padding: 12px 20px; box-shadow: 2px 5px 10px rgba(0,0,0,0.3); z-index: 100; display: flex; align-items: center; gap: 8px; font-weight: bold; font-size: 14px; text-decoration: none; }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800 font-sans">
@@ -72,7 +71,9 @@
                     if (f.name.endsWith('.md')) {
                         const res = await fetch(f.download_url);
                         const txt = await res.text();
-                        let titre="", prix=0, img="", dispo=false, stock=0;
+                        
+                        // Valeurs par défaut
+                        let titre="", prix=0, img="", dispo=true, stock=1; 
 
                         txt.split('\n').forEach(line => {
                             const clean = line.replace(/\|/g, ':').trim();
@@ -83,12 +84,12 @@
                             if (clean.toLowerCase().includes('stock:')) stock = parseInt(clean.split('stock:')[1].split(':')[0].trim());
                         });
 
+                        // On affiche si disponible ET (stock non défini OU stock > 0)
                         if (titre && dispo && stock > 0) {
                             container.innerHTML += `
                                 <div class="bg-white rounded-2xl shadow-sm border p-3 flex flex-col justify-between">
                                     <img src="${img}" class="w-full h-44 object-cover rounded-xl mb-3">
                                     <h4 class="font-bold text-[11px] truncate">${titre}</h4>
-                                    <p class="text-[10px] text-gray-400 mb-2">Stock: ${stock}</p>
                                     <p class="text-pink-600 font-black text-lg mb-3">${prix.toFixed(2)} €</p>
                                     <button onclick="ajouterAuPanier('${titre.replace(/'/g, "\\'")}', ${prix})" class="w-full bg-pink-500 text-white py-2 rounded-xl text-[10px] font-bold uppercase">Ajouter</button>
                                 </div>`;
