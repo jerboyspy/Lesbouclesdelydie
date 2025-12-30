@@ -7,17 +7,12 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
-    <style>
-        .modal { display: none !important; } 
-        .modal.active { display: flex !important; }
-        .bg-pink-custom { background-color: #fdf2f8; }
-    </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
 
     <div id="admin-bar" class="hidden bg-black text-white p-2 text-center text-[10px] gap-4 sticky top-0 z-[60]">
-        <a href="/admin/index.html" class="font-bold">📦 GÉRER STOCK</a> | 
-        <a href="/admin/admin-commandes.html" class="font-bold">📋 COMMANDES</a>
+        <a href="/admin/index.html" class="font-bold underline">📦 GÉRER STOCK</a> | 
+        <a href="/admin/admin-commandes.html" class="font-bold underline">📋 COMMANDES</a>
     </div>
 
     <nav class="bg-white shadow-sm p-4 sticky top-0 z-50 flex justify-between items-center">
@@ -31,138 +26,45 @@
     </nav>
 
     <main class="max-w-6xl mx-auto p-4 mb-20">
-        <div id="login-notice" class="text-center py-10">
-            <div class="bg-pink-custom p-6 rounded-2xl border border-pink-100 mb-4">
-                <p class="text-pink-600 font-bold mb-4 text-sm">Bienvenue ! Veuillez vous connecter pour voir la collection.</p>
-                <button onclick="netlifyIdentity.open()" class="bg-pink-500 text-white px-8 py-3 rounded-xl font-bold uppercase text-xs shadow-lg">Découvrir les bijoux</button>
-            </div>
-        </div>
-
-        <div id="produits-container" class="grid grid-cols-2 md:grid-cols-4 gap-4 hidden">
-            </div>
-
-        <div id="loading-spinner" class="hidden text-center py-20 italic text-gray-400">
-            Récupération des merveilles...
+        <div id="produits-container" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <p class="col-span-full text-center py-20 italic text-gray-400">Chargement de la collection...</p>
         </div>
     </main>
 
-    <a href="https://wa.me/33673460409" target="_blank" style="position:fixed;bottom:20px;right:20px;background:#25d366;color:white;padding:12px 20px;border-radius:50px;z-index:100;text-decoration:none;font-weight:bold;box-shadow:0 4px 10px rgba(0,0,0,0.2);display:flex;align-items:center;gap:8px;">
-        <span>💬 WhatsApp</span>
-    </a>
-
-    <div id="cart-modal" class="modal fixed inset-0 bg-black/50 z-[110] flex-col justify-end">
-        <div class="bg-white w-full max-w-md mx-auto rounded-t-3xl p-6 shadow-2xl">
-            <h3 class="text-xl font-bold text-pink-600 mb-4">Mon Panier</h3>
-            <div id="cart-items" class="space-y-2 mb-4 max-h-60 overflow-y-auto"></div>
-            <div class="bg-gray-50 p-4 rounded-xl mb-4 flex justify-between items-center">
-                <span class="font-bold">Total :</span>
-                <span id="cart-total" class="text-xl font-black text-pink-600">0.00 €</span>
-            </div>
-            <button onclick="passerCommande()" class="w-full bg-green-500 text-white py-4 rounded-xl font-bold uppercase shadow-lg">Finaliser sur WhatsApp</button>
-            <button onclick="toggleModal('cart-modal')" class="w-full text-gray-400 mt-4 text-sm font-medium">Continuer mes achats</button>
-        </div>
-    </div>
+    <a href="https://wa.me/33673460409" target="_blank" style="position:fixed;bottom:20px;right:20px;background:#25d366;color:white;padding:12px 20px;border-radius:50px;z-index:100;text-decoration:none;font-weight:bold;box-shadow:0 4px 10px rgba(0,0,0,0.2);">💬 WhatsApp</a>
 
     <script>
-        const repo = "jerboyspy/Lesbouclesdelydie";
         const _supabase = supabase.createClient("https://rsebvgdneetbbmdchwil.supabase.co", "sb_publishable_c_U9tbQzawyqAVuLTEYWWA_XBW6Fbs6");
         let panier = [];
 
-        // Détection de la connexion
         netlifyIdentity.on('init', user => {
-            if (user) {
-                if(user.email === "lydie90@wanadoo.fr") document.getElementById('admin-bar').classList.remove('hidden');
-                document.getElementById('auth-btn').innerText = "👤 COMPTE";
-                document.getElementById('login-notice').classList.add('hidden');
-                document.getElementById('produits-container').classList.remove('hidden');
-                chargerBoutique(user.token.access_token);
-            }
+            if (user && user.email === "lydie90@wanadoo.fr") document.getElementById('admin-bar').classList.remove('hidden');
+            chargerBoutique();
         });
 
-        netlifyIdentity.on('login', () => location.reload());
-        netlifyIdentity.on('logout', () => location.reload());
-
-        async function chargerBoutique(token) {
+        async function chargerBoutique() {
             const container = document.getElementById('produits-container');
-            const loader = document.getElementById('loading-spinner');
-            loader.classList.remove('hidden');
+            const { data, error } = await _supabase.from('produits').select('*').eq('disponible', true);
             
-            try {
-                // On utilise le TOKEN de connexion pour forcer le passage
-                const res = await fetch(`https://api.github.com/repos/${repo}/contents/content/produits`, {
-                    headers: { 'Authorization': `token ${token}` }
-                });
-                const fichiers = await res.json();
-                
-                container.innerHTML = "";
-                for (let f of fichiers) {
-                    if (f.name.endsWith('.md')) {
-                        const r = await fetch(f.download_url);
-                        const t = await r.text();
-                        const data = {};
-                        
-                        t.split('\n').forEach(l => {
-                            if(l.includes(':')) {
-                                const idx = l.indexOf(':');
-                                data[l.substring(0, idx).trim().toLowerCase()] = l.substring(idx + 1).trim().replace(/"/g, '');
-                            }
-                        });
-
-                        if (data.available === "true") {
-                            container.innerHTML += `
-                                <div class="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col h-full">
-                                    <div class="relative mb-2">
-                                        ${data.badge ? `<span class="absolute top-2 left-2 bg-pink-500 text-white text-[9px] px-2 py-1 rounded-full font-bold uppercase">${data.badge}</span>` : ''}
-                                        <img src="${data.image}" class="w-full h-44 object-cover rounded-xl shadow-inner">
-                                    </div>
-                                    <h4 class="font-bold text-[12px] mb-1 text-gray-700 h-8 overflow-hidden">${data.title}</h4>
-                                    <p class="text-pink-600 font-black text-lg mb-3">${parseFloat(data.price).toFixed(2)} €</p>
-                                    <button onclick="ajouterAuPanier('${data.title.replace(/'/g, "\\'")}', ${data.price})" class="mt-auto w-full bg-pink-500 text-white py-2.5 rounded-xl text-[11px] font-bold uppercase transition-transform active:scale-95">Ajouter</button>
-                                </div>`;
-                        }
-                    }
-                }
-            } catch (e) { 
-                container.innerHTML = "<p class='col-span-full text-center py-10 text-gray-400'>Erreur lors du chargement des articles.</p>";
-            } finally {
-                loader.classList.add('hidden');
+            if (error) {
+                container.innerHTML = "<p class='col-span-full text-center py-10'>Erreur de chargement. Vérifiez la table 'produits' dans Supabase.</p>";
+                return;
             }
+
+            container.innerHTML = data.map(p => `
+                <div class="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col h-full">
+                    <img src="${p.image}" class="w-full h-44 object-cover rounded-xl mb-2">
+                    <h4 class="font-bold text-[12px] mb-1">${p.titre}</h4>
+                    <p class="text-pink-600 font-black text-lg mb-3">${parseFloat(p.prix).toFixed(2)} €</p>
+                    <button onclick="ajouterAuPanier('${p.titre.replace(/'/g, "\\'")}', ${p.prix})" class="bg-pink-500 text-white py-2 rounded-xl text-[11px] font-bold uppercase">Ajouter</button>
+                </div>
+            `).join('');
         }
 
         function ajouterAuPanier(n, p) { 
             panier.push({nom:n, prix:p}); 
-            majPanier(); 
-            toggleModal('cart-modal', true); 
-        }
-
-        function majPanier() {
             document.getElementById('cart-count').innerText = panier.length;
-            let h = ""; let total = 0;
-            panier.forEach((i, idx) => { 
-                total += i.prix; 
-                h += `<div class="flex justify-between items-center bg-gray-50 p-3 rounded-xl"><span class="text-xs font-medium">${i.nom}</span><button onclick="panier.splice(${idx},1);majPanier()" class="text-red-400 font-bold p-1 text-lg">✕</button></div>`; 
-            });
-            document.getElementById('cart-items').innerHTML = h || "<p class='text-center text-gray-400 py-6 italic'>Votre panier attend des bijoux...</p>";
-            document.getElementById('cart-total').innerText = total.toFixed(2) + " €";
-        }
-
-        async function passerCommande() {
-            const user = netlifyIdentity.currentUser();
-            if (panier.length === 0) return;
-            const total = document.getElementById('cart-total').innerText;
-            const contenu = panier.map(i => i.nom).join(', ');
-            
-            try {
-                await _supabase.from('commandes').insert([{ client_email: user.email, contenu: contenu, total: total, statut: 'En attente' }]);
-                window.open(`https://wa.me/33673460409?text=${encodeURIComponent("Bonjour Lydie, commande de " + user.email + " : " + contenu + " (Total: " + total + ")")}`);
-                panier = []; majPanier(); toggleModal('cart-modal', false);
-            } catch(e) { alert("Erreur lors de la commande"); }
-        }
-
-        function toggleModal(id, force) { 
-            const m = document.getElementById(id); 
-            if (force !== undefined) force ? m.classList.add('active') : m.classList.remove('active'); 
-            else m.classList.toggle('active'); 
+            alert(n + " ajouté au panier !");
         }
     </script>
 </body>
