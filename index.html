@@ -16,39 +16,61 @@
     <nav class="bg-white shadow-sm p-4 sticky top-0 z-50">
         <div class="max-w-6xl mx-auto flex justify-between items-center">
             <h1 class="text-xl font-serif font-bold text-pink-600">Les Boucles de Lydie</h1>
-            <button onclick="toggleCart()" class="relative p-2 bg-pink-100 rounded-full">
-                🛒 <span id="cart-count" class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] px-1.5 rounded-full">0</span>
+            <button onclick="toggleCart()" class="relative p-2 bg-pink-100 rounded-full shadow-sm">
+                🛒 <span id="cart-count" class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] px-1.5 rounded-full font-bold">0</span>
             </button>
         </div>
     </nav>
 
     <header class="py-8 text-center bg-pink-50">
-        <h2 class="text-2xl font-bold">Ma Collection</h2>
-        <p class="text-gray-500 text-sm italic">Choisissez vos coups de cœur</p>
+        <h2 class="text-2xl font-bold">Boutique Artisanale</h2>
+        <p class="text-gray-500 text-sm italic">Fait main avec passion</p>
     </header>
 
     <main class="max-w-6xl mx-auto p-4">
-        <div id="produits-container" class="grid grid-cols-2 md:grid-cols-3 gap-4">
-            </div>
+        <div id="produits-container" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <p class="text-center col-span-full">Chargement...</p>
+        </div>
     </main>
 
-    <div id="cart-modal" class="fixed inset-0 bg-black bg-opacity-50 z-[60] flex-col justify-end">
-        <div class="bg-white w-full max-w-md mx-auto rounded-t-3xl p-6 shadow-2xl overflow-y-auto max-h-[80vh]">
-            <div class="flex justify-between items-center mb-4">
+    <div id="cart-modal" class="fixed inset-0 bg-black bg-opacity-50 z-[60] flex flex-col justify-end">
+        <div class="bg-white w-full max-w-md mx-auto rounded-t-3xl p-6 shadow-2xl overflow-y-auto max-h-[90vh]">
+            <div class="flex justify-between items-center mb-6 border-b pb-4">
                 <h3 class="text-xl font-bold text-pink-600">Mon Panier</h3>
-                <button onclick="toggleCart()" class="text-gray-400 text-2xl">&times;</button>
+                <button onclick="toggleCart()" class="text-gray-400 text-3xl">&times;</button>
             </div>
-            <div id="cart-items" class="space-y-4 mb-6">
+            
+            <div id="cart-items" class="space-y-4 mb-6"></div>
+
+            <div class="bg-gray-50 p-4 rounded-2xl mb-6">
+                <p class="font-bold text-sm mb-3">Mode de livraison :</p>
+                <div class="space-y-3">
+                    <label class="flex items-center gap-3 p-2 bg-white rounded-lg border border-gray-100 shadow-sm cursor-pointer">
+                        <input type="radio" name="shipping" value="0" checked onchange="majPanier()" class="accent-pink-600">
+                        <div class="text-sm">
+                            <p class="font-bold text-gray-700">Remise en main propre</p>
+                            <p class="text-xs text-gray-400">Gratuit - À convenir ensemble</p>
+                        </div>
+                    </label>
+                    <label class="flex items-center gap-3 p-2 bg-white rounded-lg border border-gray-100 shadow-sm cursor-pointer">
+                        <input type="radio" name="shipping" value="5" onchange="majPanier()" class="accent-pink-600">
+                        <div class="text-sm">
+                            <p class="font-bold text-gray-700">Envoi Colissimo</p>
+                            <p class="text-xs text-gray-400">Forfait + 5,00 €</p>
+                        </div>
+                    </label>
                 </div>
+            </div>
+
             <div class="border-t pt-4">
-                <div class="flex justify-between text-xl font-bold mb-6">
+                <div class="flex justify-between text-xl font-bold mb-6 px-2">
                     <span>Total :</span>
-                    <span id="cart-total">0.00 €</span>
+                    <span id="cart-total" class="text-pink-600">0.00 €</span>
                 </div>
-                <button onclick="envoyerCommande()" class="w-full bg-green-500 text-white py-4 rounded-xl font-bold shadow-lg hover:bg-green-600">
-                    Valider et commander (WhatsApp)
+                <button onclick="envoyerCommande()" class="w-full bg-green-500 text-white py-4 rounded-2xl font-bold shadow-lg hover:bg-green-600 transition-all active:scale-95">
+                    Commander via WhatsApp
                 </button>
-                <p class="text-center text-xs text-gray-400 mt-4 italic">Le paiement Wero sera validé avec Lydie sur WhatsApp</p>
+                <p class="text-center text-[10px] text-gray-400 mt-4 uppercase tracking-widest">Paiement Wero après validation</p>
             </div>
         </div>
     </div>
@@ -76,13 +98,15 @@
 
                         if (disponible) {
                             container.innerHTML += `
-                                <div class="bg-white rounded-xl shadow-sm border border-pink-50 p-2">
-                                    <img src="${image}" class="w-full h-40 object-cover rounded-lg mb-2">
-                                    <h4 class="font-bold text-sm truncate">${titre}</h4>
-                                    <p class="text-pink-600 font-bold text-lg">${prix} €</p>
+                                <div class="bg-white rounded-2xl shadow-sm border border-pink-50 p-3 flex flex-col justify-between">
+                                    <div>
+                                        <img src="${image}" class="w-full h-40 object-cover rounded-xl mb-3">
+                                        <h4 class="font-bold text-sm text-gray-700 mb-1">${titre}</h4>
+                                        <p class="text-pink-600 font-black text-lg">${prix} €</p>
+                                    </div>
                                     <button onclick="ajouterAuPanier('${titre.replace(/'/g, "\\'")}', ${prix})" 
-                                            class="w-full mt-2 bg-pink-500 text-white py-1.5 rounded-lg text-xs font-bold hover:bg-pink-600">
-                                        + Ajouter
+                                            class="w-full mt-3 bg-pink-500 text-white py-2 rounded-xl text-xs font-bold hover:bg-pink-600 active:scale-95 transition-all">
+                                        Ajouter au panier
                                     </button>
                                 </div>`;
                         }
@@ -94,28 +118,31 @@
         function ajouterAuPanier(nom, prix) {
             panier.push({ nom, prix });
             majPanier();
-            alert(nom + " ajouté au panier !");
         }
 
         function majPanier() {
             document.getElementById('cart-count').innerText = panier.length;
             const liste = document.getElementById('cart-items');
             const totalElt = document.getElementById('cart-total');
-            liste.innerHTML = panier.length === 0 ? "<p class='text-center text-gray-400'>Votre panier est vide</p>" : "";
+            const fraisPort = parseFloat(document.querySelector('input[name="shipping"]:checked').value);
             
-            let total = 0;
+            liste.innerHTML = panier.length === 0 ? "<p class='text-center text-gray-400 py-4'>Votre panier est vide</p>" : "";
+            
+            let totalProduits = 0;
             panier.forEach((item, index) => {
-                total += item.prix;
+                totalProduits += item.prix;
                 liste.innerHTML += `
-                    <div class="flex justify-between items-center text-sm border-b pb-2">
-                        <span>${item.nom}</span>
+                    <div class="flex justify-between items-center bg-gray-50 p-3 rounded-xl">
+                        <span class="text-sm font-medium text-gray-700">${item.nom}</span>
                         <div class="flex items-center gap-3">
-                            <span class="font-bold">${item.prix} €</span>
-                            <button onclick="retirerDuPanier(${index})" class="text-red-500 font-bold">✕</button>
+                            <span class="font-bold text-gray-900 text-sm">${item.prix.toFixed(2)}€</span>
+                            <button onclick="retirerDuPanier(${index})" class="bg-white text-red-400 w-6 h-6 flex items-center justify-center rounded-full shadow-sm hover:text-red-600 border">✕</button>
                         </div>
                     </div>`;
             });
-            totalElt.innerText = total.toFixed(2) + " €";
+            
+            const totalGlobal = totalProduits + fraisPort;
+            totalElt.innerText = totalGlobal.toFixed(2) + " €";
         }
 
         function retirerDuPanier(index) {
@@ -130,16 +157,21 @@
         function envoyerCommande() {
             if (panier.length === 0) return alert("Votre panier est vide !");
             
-            let texte = "Bonjour Lydie ! Je souhaite commander les articles suivants :\n\n";
-            let total = 0;
-            panier.forEach(item => {
-                texte += `- ${item.nom} (${item.prix}€)\n`;
-                total += item.prix;
-            });
-            texte += `\n💰 *Total : ${total.toFixed(2)}€*\n💳 *Mode de paiement : Wero*`;
+            const fraisPort = parseFloat(document.querySelector('input[name="shipping"]:checked').value);
+            const modeLivraison = fraisPort === 0 ? "Remise en main propre" : "Livraison Colissimo";
             
-            const url = `https://wa.me/${numeroWhatsApp}?text=${encodeURIComponent(texte)}`;
-            window.open(url);
+            let texte = "Bonjour Lydie ! Nouvelle commande :\n\n";
+            let totalProduits = 0;
+            panier.forEach(item => {
+                texte += `🌸 ${item.nom} (${item.prix}€)\n`;
+                totalProduits += item.prix;
+            });
+            
+            texte += `\n📦 *Mode de livraison :* ${modeLivraison}`;
+            texte += `\n💰 *Total final : ${(totalProduits + fraisPort).toFixed(2)}€*`;
+            texte += `\n💳 *Souhaite régler par : Wero*`;
+            
+            window.open(`https://wa.me/${numeroWhatsApp}?text=${encodeURIComponent(texte)}`);
         }
 
         chargerBoutique();
