@@ -16,12 +16,12 @@
     </div>
 
     <nav class="bg-white shadow-sm p-4 sticky top-0 z-50 flex justify-between items-center">
-        <h1 class="text-xl font-bold text-pink-600">Les Boucles de Lydie</h1>
+        <h1 class="text-xl font-bold text-pink-600 italic">Les Boucles de Lydie</h1>
         <div class="flex gap-3">
             <button onclick="netlifyIdentity.open()" id="auth-btn" class="text-[10px] bg-gray-100 px-3 py-2 rounded font-bold uppercase">👤 Connexion</button>
-            <button onclick="toggleModal('cart-modal')" class="relative p-2 bg-pink-100 rounded-full">
+            <a href="/panier.html" class="relative p-2 bg-pink-100 rounded-full">
                 🛒 <span id="cart-count" class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] px-1 rounded-full font-bold">0</span>
-            </button>
+            </a>
         </div>
     </nav>
 
@@ -31,23 +31,27 @@
         </div>
     </main>
 
-    <a href="https://wa.me/33673460409" target="_blank" style="position:fixed;bottom:20px;right:20px;background:#25d366;color:white;padding:12px 20px;border-radius:50px;z-index:100;text-decoration:none;font-weight:bold;box-shadow:0 4px 10px rgba(0,0,0,0.2);">💬 WhatsApp</a>
+    <a href="https://wa.me/33673460409" target="_blank" style="position:fixed;bottom:20px;left:20px;background:#25d366;color:white;padding:12px 20px;border-radius:50px;z-index:100;text-decoration:none;font-weight:bold;box-shadow:0 4px 10px rgba(0,0,0,0.2);">💬 WhatsApp</a>
 
     <script>
         const _supabase = supabase.createClient("https://rsebvgdneetbbmdchwil.supabase.co", "sb_publishable_c_U9tbQzawyqAVuLTEYWWA_XBW6Fbs6");
-        let panier = [];
+        
+        // On récupère le panier sauvegardé ou on crée un panier vide
+        let panier = JSON.parse(localStorage.getItem('panier')) || [];
 
         netlifyIdentity.on('init', user => {
             if (user && user.email === "lydie90@wanadoo.fr") document.getElementById('admin-bar').classList.remove('hidden');
             chargerBoutique();
+            updateCartCount();
         });
 
         async function chargerBoutique() {
             const container = document.getElementById('produits-container');
-            const { data, error } = await _supabase.from('produits').select('*').eq('disponible', true);
+            // Récupération des produits. Note: vérifie si ta colonne s'appelle 'disponible' ou 'stock' > 0
+            const { data, error } = await _supabase.from('produits').select('*').order('id', { ascending: false });
             
             if (error) {
-                container.innerHTML = "<p class='col-span-full text-center py-10'>Erreur de chargement. Vérifiez la table 'produits' dans Supabase.</p>";
+                container.innerHTML = "<p class='col-span-full text-center py-10'>Erreur de chargement.</p>";
                 return;
             }
 
@@ -56,15 +60,33 @@
                     <img src="${p.image}" class="w-full h-44 object-cover rounded-xl mb-2">
                     <h4 class="font-bold text-[12px] mb-1">${p.titre}</h4>
                     <p class="text-pink-600 font-black text-lg mb-3">${parseFloat(p.prix).toFixed(2)} €</p>
-                    <button onclick="ajouterAuPanier('${p.titre.replace(/'/g, "\\'")}', ${p.prix})" class="bg-pink-500 text-white py-2 rounded-xl text-[11px] font-bold uppercase">Ajouter</button>
+                    <button onclick="ajouterAuPanier('${p.titre.replace(/'/g, "\\'")}', ${p.prix}, '${p.image}')" class="bg-pink-500 text-white py-2 rounded-xl text-[11px] font-bold uppercase active:scale-95 transition">Ajouter</button>
                 </div>
             `).join('');
         }
 
-        function ajouterAuPanier(n, p) { 
-            panier.push({nom:n, prix:p}); 
+        function ajouterAuPanier(titre, prix, image) { 
+            // On ajoute l'objet complet au panier
+            panier.push({ titre, prix, image }); 
+            
+            // On sauvegarde dans le téléphone de l'utilisateur
+            localStorage.setItem('panier', JSON.stringify(panier));
+            
+            updateCartCount();
+            
+            // Petit retour visuel rapide au lieu d'une alerte bloquante
+            const btn = event.target;
+            const originalText = btn.innerText;
+            btn.innerText = "✅ AJOUTÉ";
+            btn.classList.replace('bg-pink-500', 'bg-green-500');
+            setTimeout(() => {
+                btn.innerText = originalText;
+                btn.classList.replace('bg-green-500', 'bg-pink-500');
+            }, 1000);
+        }
+
+        function updateCartCount() {
             document.getElementById('cart-count').innerText = panier.length;
-            alert(n + " ajouté au panier !");
         }
     </script>
 </body>
