@@ -2,39 +2,43 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Commandes - Lydie</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Gestion Commandes - Les Boucles de Lydie</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 </head>
-<body class="bg-gray-100 p-4 font-sans text-gray-800">
+<body class="bg-gray-50 text-gray-800 font-sans">
 
-    <div class="max-w-2xl mx-auto">
-        <header class="mb-8">
-            <div class="flex justify-between items-center mb-4">
-                <h1 class="text-2xl font-black text-pink-600 uppercase">Gestion Commandes</h1>
-                <button onclick="netlifyIdentity.open()" id="auth-btn" class="bg-white px-4 py-2 rounded-xl shadow-sm text-xs font-bold uppercase">Connexion</button>
+    <nav class="bg-white shadow-sm p-3 sticky top-0 z-50 flex justify-between items-center">
+        <span class="text-pink-600 font-bold text-sm">💎 Gestion Commandes</span>
+        <div class="flex gap-2">
+            <a href="/admin/" class="bg-gray-800 text-white px-3 py-2 rounded-lg text-[10px] font-bold uppercase">📦 Stock</a>
+            <a href="/" class="bg-gray-200 text-gray-600 px-3 py-2 rounded-lg text-[10px] font-bold uppercase">🏠 Site</a>
+        </div>
+    </nav>
+
+    <div class="max-w-md mx-auto p-4">
+        
+        <div class="grid grid-cols-2 gap-3 mb-6">
+            <div class="bg-orange-100 p-3 rounded-xl border border-orange-200 text-center">
+                <p class="text-[10px] uppercase font-bold text-orange-600 leading-tight">À Valider</p>
+                <p id="stat-attente" class="text-2xl font-black text-orange-700">0</p>
             </div>
-            <nav class="flex gap-2">
-                <a href="/" class="text-[10px] bg-gray-200 px-4 py-2 rounded-full font-bold uppercase text-gray-600 text-decoration-none">🏠 Boutique</a>
-                <a href="/admin/" class="text-[10px] bg-gray-800 text-white px-4 py-2 rounded-full font-bold uppercase text-decoration-none">💎 Gérer le Stock</a>
-            </nav>
-        </header>
-
-        <div id="admin-content" class="hidden">
-            <div class="grid grid-cols-2 gap-4 mb-8 text-center">
-                <div class="bg-orange-100 p-4 rounded-2xl border border-orange-200">
-                    <p class="text-[10px] text-orange-600 font-bold uppercase">À Valider</p>
-                    <p id="count-pending" class="text-3xl font-black">0</p>
-                </div>
-                <div class="bg-green-100 p-4 rounded-2xl border border-green-200">
-                    <p class="text-[10px] text-green-600 font-bold uppercase">Validées</p>
-                    <p id="count-done" class="text-3xl font-black">0</p>
-                </div>
+            <div class="bg-green-100 p-3 rounded-xl border border-green-200 text-center">
+                <p class="text-[10px] uppercase font-bold text-green-600 leading-tight">Validées</p>
+                <p id="stat-validee" class="text-2xl font-black text-green-700">0</p>
             </div>
+            <div class="bg-red-100 p-3 rounded-xl border border-red-200 text-center col-span-2">
+                <p class="text-[10px] uppercase font-bold text-red-600 leading-tight">Refusées</p>
+                <p id="stat-refusee" class="text-xl font-black text-red-700">0</p>
+            </div>
+        </div>
 
-            <div id="liste-admin" class="space-y-4"></div>
+        <h2 class="font-bold text-lg mb-4 flex items-center gap-2">📜 Historique des ventes</h2>
+        
+        <div id="liste-admin" class="space-y-4">
+            <p class="text-center py-10 text-gray-400 italic">Chargement des commandes...</p>
         </div>
     </div>
 
@@ -43,59 +47,78 @@
         const SUPABASE_KEY = "sb_publishable_c_U9tbQzawyqAVuLTEYWWA_XBW6Fbs6";
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        netlifyIdentity.on('login', user => {
-            verifierEtCharger(user);
+        window.addEventListener('load', () => {
+            const user = netlifyIdentity.currentUser();
+            if (!user || user.email.toLowerCase() !== "lydie90@wanadoo.fr") {
+                window.location.href = "/";
+            } else {
+                chargerCommandes();
+            }
         });
 
-        netlifyIdentity.on('logout', () => location.reload());
+        async function chargerCommandes() {
+            const { data, error } = await _supabase
+                .from('commandes')
+                .select('*')
+                .order('created_at', { ascending: false });
 
-        function verifierEtCharger(user) {
-            if (user && user.email.toLowerCase() === "lydie90@wanadoo.fr") {
-                document.getElementById('admin-content').classList.remove('hidden');
-                document.getElementById('auth-btn').innerText = "🚪 Déconnexion";
-                chargerToutesLesCommandes();
-            } else {
-                alert("Accès refusé.");
-                netlifyIdentity.logout();
+            if (error) return;
+
+            // Mise à jour des statistiques
+            document.getElementById('stat-attente').innerText = data.filter(c => c.statut === 'En attente').length;
+            document.getElementById('stat-validee').innerText = data.filter(c => c.statut === 'Validée').length;
+            document.getElementById('stat-refusee').innerText = data.filter(c => c.statut === 'Refusée').length;
+
+            const container = document.getElementById('liste-admin');
+            if (data.length === 0) {
+                container.innerHTML = "<p class='text-center text-gray-400'>Aucune commande enregistrée.</p>";
+                return;
             }
-        }
 
-        async function chargerToutesLesCommandes() {
-            const { data } = await _supabase.from('commandes').select('*').order('created_at', { ascending: false });
-            if (data) {
-                const list = document.getElementById('liste-admin');
-                document.getElementById('count-pending').innerText = data.filter(c => c.statut === 'En attente').length;
-                document.getElementById('count-done').innerText = data.filter(c => c.statut !== 'En attente').length;
-
-                list.innerHTML = data.map(c => `
-                    <div class="bg-white p-5 rounded-3xl shadow-sm border-l-8 ${c.statut === 'Payée' ? 'border-green-400' : 'border-orange-400'}">
-                        <div class="flex justify-between items-start mb-3">
-                            <div>
-                                <p class="text-xs font-bold text-gray-400 truncate w-40">${c.client_email}</p>
-                                <p class="text-[10px] text-gray-300">${new Date(c.created_at).toLocaleString()}</p>
-                            </div>
-                            <span class="text-[9px] font-black px-2 py-1 rounded-full bg-gray-100 uppercase">${c.statut}</span>
+            container.innerHTML = data.map(c => `
+                <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden">
+                    <div class="absolute left-0 top-0 bottom-0 w-1 ${c.statut === 'Validée' ? 'bg-green-500' : c.statut === 'Refusée' ? 'bg-red-500' : 'bg-orange-500'}"></div>
+                    
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <p class="text-[10px] text-gray-400 font-bold uppercase">${new Date(c.created_at).toLocaleDateString('fr-FR', {day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit'})}</p>
+                            <p class="font-bold text-gray-800 text-sm">${c.client_email}</p>
                         </div>
-                        <p class="text-sm bg-pink-50 text-pink-700 p-3 rounded-xl mb-3 font-medium italic">"${c.contenu}"</p>
-                        <p class="text-xl font-black mb-4">${c.total} € <span class="text-[10px] font-normal text-gray-400">(${c.mode_livraison})</span></p>
+                        <span class="text-[9px] font-black px-2 py-1 rounded-full uppercase ${c.statut === 'Validée' ? 'bg-green-100 text-green-700' : c.statut === 'Refusée' ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}">
+                            ${c.statut}
+                        </span>
+                    </div>
+
+                    <div class="bg-gray-50 p-2 rounded-lg my-3 text-xs text-gray-600 italic">
+                        ${c.contenu}
+                    </div>
+
+                    <div class="flex justify-between items-center">
+                        <p class="text-lg font-black text-pink-600">${c.total} €</p>
                         
-                        <div class="grid grid-cols-2 gap-2">
-                            <button onclick="changerStatut(${c.id}, 'Validée')" class="bg-pink-500 text-white py-3 rounded-xl text-[9px] font-bold uppercase hover:bg-pink-600 shadow-md">Valider Wero</button>
-                            <button onclick="changerStatut(${c.id}, 'Payée')" class="bg-gray-800 text-white py-3 rounded-xl text-[9px] font-bold uppercase hover:bg-black">Marquer Payée</button>
+                        <div class="flex gap-2">
+                            ${c.statut === 'En attente' ? `
+                                <button onclick="changerStatut('${c.id}', 'Validée')" class="bg-green-500 text-white px-4 py-2 rounded-xl text-[10px] font-bold uppercase shadow-md active:scale-95 transition-transform">Valider</button>
+                                <button onclick="changerStatut('${c.id}', 'Refusée')" class="bg-red-500 text-white px-4 py-2 rounded-xl text-[10px] font-bold uppercase shadow-md active:scale-95 transition-transform">Refuser</button>
+                            ` : ''}
+                            <button onclick="supprimerCommande('${c.id}')" class="bg-gray-100 p-2 rounded-xl text-xs active:bg-red-50">🗑️</button>
                         </div>
                     </div>
-                `).join('');
-            }
+                </div>
+            `).join('');
         }
 
-        async function changerStatut(id, ns) {
-            const { error } = await _supabase.from('commandes').update({ statut: ns }).eq('id', id);
-            if (!error) chargerToutesLesCommandes();
+        async function changerStatut(id, nouveauStatut) {
+            if (!confirm(`Passer cette commande en ${nouveauStatut} ?`)) return;
+            const { error } = await _supabase.from('commandes').update({ statut: nouveauStatut }).eq('id', id);
+            if (!error) chargerCommandes();
         }
 
-        // Vérification au chargement
-        const currentUser = netlifyIdentity.currentUser();
-        if(currentUser) verifierEtCharger(currentUser);
+        async function supprimerCommande(id) {
+            if (!confirm("Supprimer définitivement cette commande ?")) return;
+            const { error } = await _supabase.from('commandes').delete().eq('id', id);
+            if (!error) chargerCommandes();
+        }
     </script>
 </body>
 </html>
