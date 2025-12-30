@@ -1,69 +1,153 @@
-        // Remplacez tout votre bloc <script> actuel par celui-ci :
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Les Boucles de Lydie</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+</head>
+<body class="bg-gray-50 p-4 pb-20 text-gray-800 font-sans">
+    <div class="max-w-lg mx-auto">
+        
+        <div class="bg-white p-6 rounded-3xl shadow-xl mb-8 border border-pink-100">
+            <h2 class="text-2xl font-black text-pink-600 mb-6 text-center italic">Ajouter un bijou</h2>
+            
+            <form id="produit-form" class="space-y-4">
+                <div>
+                    <label class="block text-[10px] font-bold uppercase text-gray-400 ml-2 mb-1">Nom du modèle</label>
+                    <input type="text" id="titre" class="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-pink-400" placeholder="ex: Boucles d'Or" required>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase text-gray-400 ml-2 mb-1">Prix (€)</label>
+                        <input type="number" step="0.01" id="prix" class="w-full p-4 bg-gray-50 rounded-2xl border-none" placeholder="5.00" required>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase text-gray-400 ml-2 mb-1">Quantité</label>
+                        <input type="number" id="stock" class="w-full p-4 bg-gray-50 rounded-2xl border-none" placeholder="1" required>
+                    </div>
+                </div>
+
+                <div class="bg-pink-50 p-5 rounded-2xl border-2 border-dashed border-pink-200 text-center">
+                    <label class="block text-xs font-bold text-pink-600 mb-2 uppercase italic">📸 Sélectionner la photo</label>
+                    <input type="file" id="fileInput" accept="image/*" class="text-xs mx-auto">
+                </div>
+
+                <button type="submit" id="btn-submit" class="w-full bg-pink-500 text-white py-5 rounded-2xl font-black uppercase shadow-lg shadow-pink-200 active:scale-95 transition-all">
+                    Mettre en ligne
+                </button>
+            </form>
+        </div>
+
+        <div class="bg-white p-6 rounded-3xl shadow-lg border border-gray-100">
+            <h3 class="font-bold text-gray-800 mb-4 uppercase text-[10px] tracking-widest text-center">Articles déjà en ligne</h3>
+            <div id="produits-list" class="space-y-3">
+                <p class="text-center text-gray-400 italic text-sm">Chargement de la liste...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Connexion Supabase
         const _supabase = supabase.createClient("https://rsebvgdneetbbmdchwil.supabase.co", "sb_publishable_c_U9tbQzawyqAVuLTEYWWA_XBW6Fbs6");
 
+        // Vérification de l'identité (Netlify Identity)
         netlifyIdentity.on('init', user => { 
-            if (!user) window.location.href = "/"; 
+            if (!user) {
+                window.location.href = "/"; 
+            }
             chargerListe(); 
         });
 
+        // Fonction d'envoi du formulaire
         document.getElementById('produit-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = document.getElementById('btn-submit');
-            const fileInput = document.getElementById('fileInput');
-            const file = fileInput.files[0];
+            const file = document.getElementById('fileInput').files[0];
             
-            if(!file) return alert("Veuillez choisir une photo");
+            if(!file) return alert("S'il vous plaît, sélectionnez une photo.");
 
             btn.disabled = true;
             btn.innerText = "⏳ ENVOI EN COURS...";
 
             try {
-                // 1. On prépare l'image
+                // 1. On transforme l'image pour l'envoi
                 const reader = new FileReader();
                 reader.readAsDataURL(file);
                 reader.onload = async () => {
                     const base64Content = reader.result.split(',')[1];
                     const fileName = `img_${Date.now()}.${file.name.split('.').pop()}`;
 
-                    // 2. On appelle notre fonction Netlify (C'est elle qui a le Token !)
+                    // 2. On utilise la Netlify Function pour envoyer l'image sur GitHub
                     const res = await fetch('/.netlify/functions/upload', {
                         method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ fileName, content: base64Content })
                     });
 
-                    if(!res.ok) throw new Error("Erreur lors de l'envoi de l'image");
+                    if(!res.ok) {
+                        const errorMsg = await res.text();
+                        throw new Error("Erreur GitHub : " + errorMsg);
+                    }
 
-                    // 3. On enregistre dans Supabase
+                    const uploadData = await res.json();
+
+                    // 3. On enregistre les infos dans la base de données Supabase
                     const { error } = await _supabase.from('produits').insert([{
                         titre: document.getElementById('titre').value,
                         prix: parseFloat(document.getElementById('prix').value),
                         stock: parseInt(document.getElementById('stock').value),
-                        image: `/images/${fileName}`
+                        image: uploadData.url,
+                        disponible: true
                     }]);
-
-                    if (error) throw error;
                     
-                    alert("Bijou ajouté avec succès !");
+                    if (error) throw error;
+
+                    alert("Félicitations ! Le bijou est en ligne.");
                     location.reload();
                 };
             } catch (err) {
-                alert("Erreur : " + err.message);
+                alert("Oups ! " + err.message);
                 btn.disabled = false;
-                btn.innerText = "🚀 Mettre en ligne";
+                btn.innerText = "Réessayer";
             }
         });
 
+        // Fonction pour afficher la liste des bijoux
         async function chargerListe() {
             const { data } = await _supabase.from('produits').select('*').order('id', { ascending: false });
-            document.getElementById('produits-list').innerHTML = data ? data.map(p => `
-                <div class="flex items-center justify-between p-3 bg-white rounded-2xl shadow-sm border">
-                    <img src="${p.image}" class="w-12 h-12 rounded-xl object-cover">
-                    <span class="text-xs font-bold">${p.titre}</span>
-                    <button onclick="supprimer(${p.id})" class="text-red-400">🗑️</button>
+            const list = document.getElementById('produits-list');
+            
+            if(!data || data.length === 0) {
+                list.innerHTML = "<p class='text-center text-gray-400'>Aucun bijou enregistré.</p>";
+                return;
+            }
+            
+            list.innerHTML = data.map(p => `
+                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-2xl border border-gray-100 shadow-sm">
+                    <div class="flex items-center gap-4">
+                        <img src="${p.image}" class="w-12 h-12 rounded-xl object-cover shadow-sm">
+                        <div>
+                            <div class="text-[11px] font-black text-gray-700">${p.titre}</div>
+                            <div class="text-pink-500 font-bold text-[10px]">${p.prix} €</div>
+                        </div>
+                    </div>
+                    <button onclick="supprimer(${p.id})" class="text-red-400 p-2 hover:bg-red-50 rounded-xl transition-colors">🗑️</button>
                 </div>
-            `).join('') : '';
+            `).join('');
         }
 
+        // Fonction pour supprimer un bijou
         async function supprimer(id) {
-            if(confirm("Supprimer ?")) { await _supabase.from('produits').delete().eq('id', id); chargerListe(); }
+            if(confirm("Voulez-vous vraiment supprimer ce bijou de la boutique ?")) {
+                const { error } = await _supabase.from('produits').delete().eq('id', id);
+                if (error) alert("Erreur lors de la suppression");
+                else chargerListe();
+            }
         }
+    </script>
+</body>
+</html>
