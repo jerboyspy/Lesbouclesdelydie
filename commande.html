@@ -1,1 +1,78 @@
-e
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Commande - Les Boucles de Lydie</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-50 p-4 pb-20 font-sans text-gray-800">
+    <div class="max-w-lg mx-auto">
+        <div class="flex items-center gap-4 mb-8">
+            <a href="/panier.html" class="text-2xl">←</a>
+            <h1 class="text-2xl font-black italic text-pink-600">Finaliser</h1>
+        </div>
+
+        <form id="form-commande" class="space-y-6">
+            <div class="bg-white p-6 rounded-3xl shadow-sm border border-pink-100 space-y-4">
+                <h2 class="font-bold text-gray-400 uppercase text-[10px]">Tes coordonnées</h2>
+                <input type="text" id="nom" placeholder="Ton Nom" class="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-pink-300" required>
+                <input type="email" id="email" placeholder="Email (pour le suivi)" class="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-pink-300" required>
+                <textarea id="adresse" placeholder="Adresse complète de livraison" class="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-pink-300" rows="3" required></textarea>
+            </div>
+
+            <div class="bg-white p-6 rounded-3xl shadow-xl border border-pink-100">
+                <div class="flex justify-between text-2xl font-black text-pink-600 mb-4">
+                    <span>Total</span>
+                    <span id="total-display">0.00€</span>
+                </div>
+
+                <div class="bg-blue-50 p-4 rounded-2xl mb-6 border border-blue-100">
+                    <p class="text-sm font-bold text-blue-700">📋 Validation par Lydie</p>
+                    <p class="text-[11px] text-blue-600 mt-1 italic">
+                        Une fois ta demande envoyée, Lydie vérifiera son stock et te donnera le feu vert pour le paiement Wero.
+                    </p>
+                </div>
+
+                <button type="submit" class="w-full bg-pink-500 text-white py-5 rounded-2xl font-black uppercase shadow-lg active:scale-95 transition">
+                    📩 Envoyer ma demande
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        const _supabase = supabase.createClient("https://rsebvgdneetbbmdchwil.supabase.co", "sb_publishable_c_U9tbQzawyqAVuLTEYWWA_XBW6Fbs6");
+        let panier = JSON.parse(localStorage.getItem('panier')) || [];
+        
+        const st = panier.reduce((sum, item) => sum + parseFloat(item.prix), 0);
+        const port = st >= 50 || st === 0 ? 0 : 4.50;
+        const total = (st + port).toFixed(2);
+        document.getElementById('total-display').innerText = total + "€";
+
+        document.getElementById('form-commande').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const nom = document.getElementById('nom').value;
+            const contenu = panier.map(p => `- ${p.titre}`).join('\n');
+
+            try {
+                const { error } = await _supabase.from('commandes').insert([{
+                    client_email: nom, // On utilise ton champ existant pour le nom
+                    contenu: contenu,
+                    total: parseFloat(total),
+                    statut: 'En attente'
+                }]);
+
+                if(error) throw error;
+
+                const message = `Bonjour Lydie ! C'est ${nom}. J'aimerais commander :\n${contenu}\n\nTotal : ${total}€ (avec port). Est-ce que c'est ok pour toi ?`;
+                window.location.href = `https://wa.me/33673460409?text=${encodeURIComponent(message)}`;
+                localStorage.removeItem('panier');
+            } catch (err) {
+                alert("Erreur : " + err.message);
+            }
+        });
+    </script>
+</body>
+</html>
