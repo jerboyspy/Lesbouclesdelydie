@@ -7,13 +7,13 @@
   <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    /* Ajustements pour que le CMS soit utilisable sur mobile */
-    #nc-root div[class*="AppHeaderContent"] { padding: 0 10px; }
-    #nc-root button { font-size: 14px !important; }
-    /* Force l'éditeur à ne pas déborder */
-    [class*="EditorLayoutContainer"] { padding: 10px !important; }
-    /* Cache les éléments trop larges qui polluent l'écran mobile */
-    [class*="PaneContainer"] { overflow-x: hidden; }
+    /* Correction pour l'affichage mobile du CMS */
+    #nc-root [class*="AppHeaderContent"] { padding: 0 5px !important; }
+    #nc-root [class*="SidebarContainer"] { display: none; } /* Cache la barre latérale inutile sur mobile */
+    #nc-root [class*="CollectionContainer"] { padding: 10px !important; margin: 0 !important; }
+    #nc-root [class*="Card"] { margin-bottom: 10px !important; }
+    #nc-root [class*="EditorLayoutContainer"] { padding: 5px !important; }
+    iframe { max-width: 100% !important; }
   </style>
 </head>
 <body class="bg-gray-100">
@@ -21,17 +21,12 @@
   <div class="bg-white p-3 shadow-md flex justify-between items-center sticky top-0 z-[1000]">
     <span class="text-pink-600 font-bold text-sm">💎 Admin</span>
     <div class="flex gap-2">
-      <a href="/admin/admin-commandes.html" class="bg-pink-600 text-white px-3 py-2 rounded-lg text-[10px] font-bold uppercase shadow-sm">
-          📋 Commandes
-      </a>
-      <a href="/" class="bg-gray-200 text-gray-600 px-3 py-2 rounded-lg text-[10px] font-bold uppercase">
-          🏠 Site
-      </a>
+      <a href="/admin/admin-commandes.html" class="bg-pink-600 text-white px-3 py-2 rounded-lg text-[10px] font-bold uppercase">📋 Commandes</a>
+      <a href="/" class="bg-gray-200 text-gray-600 px-3 py-2 rounded-lg text-[10px] font-bold uppercase">🏠 Site</a>
     </div>
   </div>
 
   <div id="nc-root"></div>
-
   <script src="https://unpkg.com/decap-cms@^3.0.0/dist/decap-cms.js"></script>
 </body>
 </html>
