@@ -54,6 +54,7 @@
         const _supabase = supabase.createClient("https://rsebvgdneetbbmdchwil.supabase.co", "sb_publishable_c_U9tbQzawyqAVuLTEYWWA_XBW6Fbs6");
         let allData = [];
 
+        // Gestion de l'authentification Netlify
         netlifyIdentity.on('init', user => {
             if (!user || user.email.toLowerCase() !== "lydie90@wanadoo.fr") window.location.href = "/";
             else { document.body.style.display = "block"; chargerCommandes(); }
@@ -64,13 +65,14 @@
             if (error) return;
             allData = data;
 
+            // Mise à jour des statistiques mensuelles
             const statsContainer = document.getElementById('stats-mois');
             const gainsParMois = {};
             
             data.filter(c => c.statut === 'Clôturée').forEach(c => {
                 const mois = new Date(c.created_at).toLocaleString('fr-FR', { month: 'long', year: 'numeric' });
                 const totalClient = parseFloat(c.total) || 0;
-                const portEffectif = parseFloat(c.frais_port) || 0; // Utilise le port spécifique enregistré
+                const portEffectif = parseFloat(c.frais_port) || 0;
                 
                 const gainNet = totalClient - portEffectif;
                 gainsParMois[mois] = (gainsParMois[mois] || 0) + gainNet;
@@ -83,12 +85,20 @@
                 </div>
             `).join('') || '<p class="text-center text-xs text-gray-500 italic">Aucun gain clôturé.</p>';
 
+            // Affichage des cartes de commandes
             const container = document.getElementById('liste-admin');
             container.innerHTML = data.map(c => {
-                const sColors = { 'En attente': 'bg-orange-100 text-orange-700', 'Validée': 'bg-green-100 text-green-700', 'Payée': 'bg-blue-100 text-blue-700', 'Expédiée': 'bg-purple-100 text-purple-700', 'Clôturée': 'bg-gray-200 text-gray-500' };
+                const sColors = { 
+                    'En attente': 'bg-orange-100 text-orange-700', 
+                    'Validée': 'bg-green-100 text-green-700', 
+                    'Payée': 'bg-blue-100 text-blue-700', 
+                    'Expédiée': 'bg-purple-100 text-purple-700', 
+                    'Clôturée': 'bg-gray-200 text-gray-500' 
+                };
                 
-                // Calcul du port par défaut si non défini
-                const portParDefaut = c.frais_port !== undefined && c.frais_port !== null ? c.frais_port : (parseFloat(c.total) >= parseFloat(document.getElementById('global-seuil').value) ? 0 : parseFloat(document.getElementById('global-port').value));
+                const portParDefaut = (c.frais_port !== undefined && c.frais_port !== null) 
+                    ? c.frais_port 
+                    : (parseFloat(c.total) >= parseFloat(document.getElementById('global-seuil').value) ? 0 : parseFloat(document.getElementById('global-port').value));
 
                 return `
                 <div class="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 mb-4 ${c.statut === 'Clôturée' ? 'opacity-60' : ''}">
@@ -135,8 +145,16 @@
         }
 
         async function validerAction(id, bloc) {
-            const prixFinal = parseFloat(document.getElementById(`prix-final-${id}`).value);
-            const fraisPort = parseFloat(document.getElementById(`port-${id}`).value);
+            const elPrix = document.getElementById(`prix-final-${id}`);
+            const elPort = document.getElementById(`port-${id}`);
+
+            if (!elPrix || !elPort) {
+                alert("Erreur : Impossible de lire les montants.");
+                return;
+            }
+
+            const prixFinal = parseFloat(elPrix.value);
+            const fraisPort = parseFloat(elPort.value);
             
             const { error } = await _supabase.from('commande').update({ 
                 total: prixFinal, 
@@ -148,6 +166,8 @@
                 const msg = `Coucou 🌸 C'est Lydie. Stock validé ! ✅\nTotal à régler : ${prixFinal.toFixed(2)}€.\nTu peux faire ton Wero sur mon numéro. Merci ! ✨`;
                 ouvrirWhatsApp(bloc, msg);
                 chargerCommandes();
+            } else {
+                alert("Erreur Supabase : " + error.message);
             }
         }
 
@@ -159,7 +179,7 @@
                 else if (!tel.startsWith('33')) tel = '33' + tel;
                 window.open(`https://wa.me/${tel}?text=${encodeURIComponent(message)}`, '_blank');
             } else {
-                alert("Numéro non trouvé.");
+                alert("Numéro WhatsApp non trouvé dans les détails.");
             }
         }
 
