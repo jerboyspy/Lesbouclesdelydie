@@ -18,7 +18,7 @@
     <nav class="bg-white shadow-sm p-4 sticky top-0 z-50 flex justify-between items-center">
         <h1 class="text-xl font-bold text-pink-600 italic">Les Boucles de Lydie</h1>
         <div class="flex items-center gap-2">
-            <a href="/mes-commandes.html" id="btn-mes-commandes" class="hidden relative text-[10px] bg-pink-100 text-pink-600 px-3 py-2 rounded font-bold uppercase">
+            <a href="/mes-commandes.html" id="btn-mes-commandes" class="hidden relative text-[10px] bg-pink-100 text-pink-600 px-3 py-2 rounded font-bold uppercase transition hover:bg-pink-200">
                 📋 Mes Commandes
                 <span id="dot-notif" class="hidden absolute -top-1 -right-1 w-3 h-3 bg-red-500 border-2 border-white rounded-full"></span>
             </a>
@@ -26,7 +26,7 @@
             <button onclick="netlifyIdentity.open()" id="auth-btn" class="text-[10px] bg-gray-100 px-3 py-2 rounded font-bold uppercase">👤 Connexion</button>
             
             <a href="/panier.html" class="relative p-2 bg-pink-100 rounded-full">
-                🛒 <span id="cart-count" class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] px-1 rounded-full font-bold">0</span>
+                🛒 <span id="cart-count" class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">0</span>
             </a>
         </div>
     </nav>
@@ -37,66 +37,82 @@
         </div>
     </main>
 
-    <a href="https://wa.me/33673460409" target="_blank" style="position:fixed;bottom:20px;left:20px;background:#25d366;color:white;padding:12px 20px;border-radius:50px;z-index:100;text-decoration:none;font-weight:bold;box-shadow:0 4px 10px rgba(0,0,0,0.2);">💬 WhatsApp</a>
+    <a href="https://wa.me/33673460409" target="_blank" class="fixed bottom-5 left-5 bg-[#25d366] text-white px-5 py-3 rounded-full z-[100] font-bold shadow-lg flex items-center gap-2">
+        💬 WhatsApp
+    </a>
 
     <script>
         const _supabase = supabase.createClient("https://rsebvgdneetbbmdchwil.supabase.co", "sb_publishable_c_U9tbQzawyqAVuLTEYWWA_XBW6Fbs6");
         
         let panier = JSON.parse(localStorage.getItem('panier')) || [];
 
-        // Gestion de l'affichage selon la connexion
-        netlifyIdentity.on('init', user => handleAuth(user));
-        netlifyIdentity.on('login', user => { handleAuth(user); location.reload(); });
-        netlifyIdentity.on('logout', () => location.reload());
-
-        function handleAuth(user) {
-            if (user) {
-                // Si c'est Lydie, on montre la barre admin
-                if (user.email === "lydie90@wanadoo.fr") {
-                    document.getElementById('admin-bar').classList.remove('hidden');
-                }
-                // Pour TOUS les clients connectés, on montre "Mes Commandes"
-                document.getElementById('btn-mes-commandes').classList.remove('hidden');
-                document.getElementById('auth-btn').innerText = "👤 Déconnexion";
-                
-                // Vérifier s'il y a des commandes validées à signaler
-                verifierNotifications(user.email);
-            }
+        // Lancer la boutique au démarrage
+        document.addEventListener('DOMContentLoaded', () => {
             chargerBoutique();
             updateCartCount();
+        });
+
+        // Gestion Netlify Identity
+        netlifyIdentity.on('init', user => { if (user) handleAuth(user); });
+        netlifyIdentity.on('login', user => { handleAuth(user); netlifyIdentity.close(); });
+        netlifyIdentity.on('logout', () => { location.reload(); });
+
+        function handleAuth(user) {
+            if (!user) return;
+
+            // Admin Lydie
+            if (user.email.toLowerCase() === "lydie90@wanadoo.fr") {
+                document.getElementById('admin-bar').classList.remove('hidden');
+            }
+            
+            // Client
+            document.getElementById('btn-mes-commandes').classList.remove('hidden');
+            document.getElementById('auth-btn').innerText = "👤 Déconnexion";
+            
+            // Vérification des notifications (Table: commande)
+            verifierNotifications(user.email);
         }
 
         async function verifierNotifications(email) {
-            // Cherche s'il existe au moins une commande "Validée" pour cet utilisateur
-            const { data } = await _supabase
-                .from('commande')
-                .select('id')
-                .eq('statut', 'Validée')
-                .or(`client_email.eq."${email}",contenu.ilike."%${email}%"`)
-                .limit(1);
-            
-            if (data && data.length > 0) {
-                document.getElementById('dot-notif').classList.remove('hidden');
-            }
+            try {
+                // Utilisation du nom exact : 'commande' (sans s)
+                const { data } = await _supabase
+                    .from('commande')
+                    .select('id')
+                    .eq('statut', 'Validée')
+                    .or(`client_email.eq."${email}",contenu.ilike."%${email}%"`)
+                    .limit(1);
+                
+                if (data && data.length > 0) {
+                    document.getElementById('dot-notif').classList.remove('hidden');
+                }
+            } catch (e) { console.error("Erreur notif:", e); }
         }
 
         async function chargerBoutique() {
             const container = document.getElementById('produits-container');
-            const { data, error } = await _supabase.from('produits').select('*').order('id', { ascending: false });
-            
-            if (error) {
-                container.innerHTML = "<p class='col-span-full text-center py-10'>Erreur de chargement.</p>";
-                return;
-            }
+            try {
+                const { data, error } = await _supabase.from('produits').select('*').order('id', { ascending: false });
+                if (error) throw error;
 
-            container.innerHTML = data.map(p => `
-                <div class="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col h-full">
-                    <img src="${p.image}" class="w-full h-44 object-cover rounded-xl mb-2">
-                    <h4 class="font-bold text-[12px] mb-1">${p.titre}</h4>
-                    <p class="text-pink-600 font-black text-lg mb-3">${parseFloat(p.prix).toFixed(2)} €</p>
-                    <button onclick="ajouterAuPanier('${p.titre.replace(/'/g, "\\'")}', ${p.prix}, '${p.image}')" class="bg-pink-500 text-white py-2 rounded-xl text-[11px] font-bold uppercase active:scale-95 transition">Ajouter</button>
-                </div>
-            `).join('');
+                if (!data || data.length === 0) {
+                    container.innerHTML = "<p class='col-span-full text-center py-20 italic text-gray-400'>La collection arrive bientôt...</p>";
+                    return;
+                }
+
+                container.innerHTML = data.map(p => `
+                    <div class="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col h-full hover:shadow-md transition">
+                        <img src="${p.image}" class="w-full h-44 object-cover rounded-xl mb-2" onerror="this.src='https://via.placeholder.com/200'">
+                        <h4 class="font-bold text-[12px] mb-1">${p.titre}</h4>
+                        <p class="text-pink-600 font-black text-lg mb-3">${parseFloat(p.prix).toFixed(2)} €</p>
+                        <button onclick="ajouterAuPanier('${p.titre.replace(/'/g, "\\'")}', ${p.prix}, '${p.image}')" class="bg-pink-500 text-white py-2.5 rounded-xl text-[11px] font-bold uppercase active:scale-95 transition-all">
+                            Ajouter
+                        </button>
+                    </div>
+                `).join('');
+            } catch (err) {
+                container.innerHTML = "<p class='col-span-full text-center py-10 text-red-400'>Erreur de chargement des produits.</p>";
+            }
         }
 
         function ajouterAuPanier(titre, prix, image) { 
@@ -115,7 +131,8 @@
         }
 
         function updateCartCount() {
-            document.getElementById('cart-count').innerText = panier.length;
+            const countEl = document.getElementById('cart-count');
+            if (countEl) countEl.innerText = panier.length;
         }
     </script>
 </body>
