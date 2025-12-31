@@ -46,13 +46,35 @@
             }
 
             container.innerHTML = data.map(c => {
+                // Définition des styles selon le statut
                 const isValidated = c.statut === 'Validée';
-                const statusColor = isValidated ? "bg-green-100 text-green-600" : "bg-orange-100 text-orange-600";
-                const borderColor = isValidated ? "border-green-400 shadow-md" : "border-gray-100";
+                const isPaid = c.statut === 'Payée';
+                const isShipped = c.statut === 'Expédiée';
+
+                let statusColor = "bg-orange-100 text-orange-600";
+                let borderColor = "border-gray-100";
+                let badgeText = "";
+
+                if (isValidated) {
+                    statusColor = "bg-green-100 text-green-600";
+                    borderColor = "border-green-400 shadow-md";
+                    badgeText = "✨ Prêt pour paiement";
+                } else if (isPaid) {
+                    statusColor = "bg-blue-100 text-blue-600";
+                    borderColor = "border-blue-200";
+                    badgeText = "💰 Paiement reçu";
+                } else if (isShipped) {
+                    statusColor = "bg-purple-100 text-purple-600";
+                    borderColor = "border-purple-200";
+                    badgeText = "📦 Colis envoyé !";
+                }
+
+                // Préparation du message WhatsApp automatique
+                const messageWero = encodeURIComponent(`Bonjour Lydie, je viens de régler ma commande n°${c.id} d'un montant de ${parseFloat(c.total).toFixed(2)}€ via Wero. Merci !`);
                 
                 return `
                 <div class="bg-white p-6 rounded-[30px] border-2 ${borderColor} relative transition-all">
-                    ${isValidated ? '<span class="absolute -top-3 left-6 bg-green-500 text-white text-[9px] px-3 py-1 rounded-full font-black uppercase shadow-sm">✨ Prêt pour paiement</span>' : ''}
+                    ${badgeText ? `<span class="absolute -top-3 left-6 ${statusColor.replace('100', '500').replace('text-', 'bg-')} text-white text-[9px] px-3 py-1 rounded-full font-black uppercase shadow-sm">${badgeText}</span>` : ''}
                     
                     <div class="flex justify-between items-start mb-4">
                         <span class="text-[10px] text-gray-400 font-bold uppercase">${new Date(c.created_at).toLocaleDateString('fr-FR')}</span>
@@ -73,10 +95,16 @@
                         <a href="/suivi.html?id=${c.id}" class="flex-1 text-center bg-gray-100 hover:bg-gray-200 py-3 rounded-xl text-[10px] text-gray-500 uppercase font-black transition">
                             🔍 Suivi en direct
                         </a>
+                        
                         ${isValidated ? `
-                        <a href="https://wa.me/33673460409" class="flex-1 text-center bg-green-500 text-white py-3 rounded-xl text-[10px] uppercase font-black shadow-sm active:scale-95 transition">
+                        <a href="https://wa.me/33673460409?text=${messageWero}" class="flex-1 text-center bg-green-500 text-white py-3 rounded-xl text-[10px] uppercase font-black shadow-sm active:scale-95 transition">
                             💬 Envoyer Wero
                         </a>` : ''}
+
+                        ${isShipped ? `
+                        <div class="flex-1 text-center bg-purple-500 text-white py-3 rounded-xl text-[10px] uppercase font-black shadow-sm">
+                            🚚 En route
+                        </div>` : ''}
                     </div>
                 </div>
                 `;
