@@ -18,7 +18,12 @@
             <div class="bg-white p-6 rounded-3xl shadow-sm border border-pink-100 space-y-4">
                 <h2 class="font-bold text-gray-400 uppercase text-[10px]">Tes coordonnées</h2>
                 <input type="text" id="nom" placeholder="Ton Nom et Prénom" class="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-pink-300" required>
-                <input type="tel" id="tel" placeholder="Ton numéro de téléphone (ex: 0612345678)" class="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-pink-300" required>
+                
+                <div class="relative">
+                    <input type="tel" id="tel" placeholder="Ton numéro (ex: 06 12...)" class="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-pink-300" required>
+                    <p class="text-[9px] text-gray-400 mt-1 ml-2 italic">Format WhatsApp 33... automatique</p>
+                </div>
+
                 <input type="email" id="email" placeholder="Email" class="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-pink-300" required>
                 <textarea id="adresse" placeholder="Adresse complète de livraison" class="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-pink-300" rows="3" required></textarea>
             </div>
@@ -30,11 +35,11 @@
                 </div>
                 <div class="bg-blue-50 p-4 rounded-2xl mb-6 border border-blue-100">
                     <p class="text-[11px] text-blue-600 italic text-center">
-                        Lydie va vérifier votre commande et vous enverra un message WhatsApp pour le paiement Wero.
+                        En cliquant, ta commande est envoyée à Lydie. <br> Elle te contactera sur WhatsApp pour le paiement.
                     </p>
                 </div>
                 <button type="submit" id="btn-submit" class="w-full bg-pink-500 text-white py-5 rounded-2xl font-black uppercase shadow-lg active:scale-95 transition">
-                    📩 Demander la validation
+                    📩 Envoyer la commande
                 </button>
             </div>
         </form>
@@ -44,35 +49,73 @@
         const _supabase = supabase.createClient("https://rsebvgdneetbbmdchwil.supabase.co", "sb_publishable_c_U9tbQzawyqAVuLTEYWWA_XBW6Fbs6");
         let panier = JSON.parse(localStorage.getItem('panier')) || [];
         
+        // --- CALCUL DU TOTAL ---
         const st = panier.reduce((sum, item) => sum + parseFloat(item.prix), 0);
         const portBase = (st >= 50 || st === 0) ? 0 : 4.50;
         const totalInit = (st + portBase).toFixed(2);
         document.getElementById('total-display').innerText = totalInit + "€";
 
+        // --- GESTION DU FORMULAIRE ---
         document.getElementById('form-commande').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = document.getElementById('btn-submit');
+            
             const nom = document.getElementById('nom').value;
-            const tel = document.getElementById('tel').value.replace(/\s/g, ''); 
-            const contenu = panier.map(p => `- ${p.titre} (${p.prix}€)`).join('\n');
+            let telSaisi = document.getElementById('tel').value.replace(/\s/g, ''); 
+            
+            // --- CONVERSION FORMAT 33 ---
+            if(telSaisi.startsWith('0')) {
+                telSaisi = '33' + telSaisi.substring(1);
+            } else if (!telSaisi.startsWith('33')) {
+                telSaisi = '33' + telSaisi;
+            }
 
+            const email = document.getElementById('email').value;
+            const adresse = document.getElementById('adresse').value;
+            const listeProduits = panier.map(p => `- ${p.titre} (${p.prix}€)`).join('\n');
+
+            // Le format "Tel: 33..." est crucial pour que l'admin WhatsApp de Lydie fonctionne
+            const blocContenu = `Tel: ${telSaisi}\nEmail: ${email}\nAdresse: ${adresse}\n\nProduits:\n${listeProduits}`;
+
+            btn.innerText = "Envoi en cours...";
             btn.disabled = true;
+
             try {
+                // 1. Enregistrement Supabase
                 const { data, error } = await _supabase.from('commande').insert([{
                     client_email: nom, 
-                    contenu: `Tel: ${tel}\nEmail: ${document.getElementById('email').value}\nAdresse: ${document.getElementById('adresse').value}\n\nProduits:\n${contenu}`,
+                    contenu: blocContenu,
                     total: parseFloat(totalInit),
                     statut: 'En attente'
                 }]).select();
 
                 if(error) throw error;
 
+                // 2. Message pour Lydie
+                const messageWhatsApp = encodeURIComponent(
+                    `Coucou Lydie ! 🌸\n` +
+                    `Nouvelle commande de *${nom}*\n` +
+                    `Total : ${totalInit}€\n\n` +
+                    `Détails :\n${listeProduits}\n\n` +
+                    `Lien client : https://wa.me/${telSaisi}`
+                );
+                
+                // Ton numéro Lydie (Format 33)
+                const urlWhatsAppLydie = `https://wa.me/33673460409?text=${messageWhatsApp}`;
+
+                // On vide le panier
                 localStorage.removeItem('panier');
-                // Redirection vers la page de suivi
-                window.location.href = `/suivi.html?id=${data[0].id}`;
+
+                // 3. Redirection et ouverture WhatsApp
+                window.open(urlWhatsAppLydie, '_blank');
+                
+                alert("Ta commande a bien été enregistrée ! Lydie va te contacter sur WhatsApp. ✨");
+                window.location.href = `/`; 
+                
             } catch (err) {
-                alert(err.message);
+                alert("Erreur : " + err.message);
                 btn.disabled = false;
+                btn.innerText = "📩 Envoyer la commande";
             }
         });
     </script>
