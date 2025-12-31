@@ -64,42 +64,60 @@
                 return;
             }
 
-            container.innerHTML = data.map(c => `
+            container.innerHTML = data.map(c => {
+                let colorClass = "bg-orange-100 text-orange-700";
+                if (c.statut === 'Validée') colorClass = "bg-green-100 text-green-700";
+                if (c.statut === 'Payée') colorClass = "bg-blue-100 text-blue-700";
+                if (c.statut === 'Expédiée') colorClass = "bg-purple-100 text-purple-700";
+
+                return `
                 <div class="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 mb-4">
                     <div class="flex justify-between items-start mb-4">
                         <p class="font-bold text-gray-800 text-sm">${c.client_email}</p>
-                        <span class="text-[9px] font-black px-2 py-1 rounded-full uppercase ${c.statut === 'Validée' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}">${c.statut}</span>
+                        <span class="text-[9px] font-black px-2 py-1 rounded-full uppercase ${colorClass}">${c.statut}</span>
                     </div>
 
                     <div class="bg-gray-50 p-3 rounded-xl text-[11px] text-gray-500 mb-4 whitespace-pre-wrap">${c.contenu}</div>
 
-                    <div class="space-y-3 bg-pink-50/50 p-3 rounded-2xl border border-pink-100">
+                    <div class="space-y-3 bg-pink-50/50 p-3 rounded-2xl border border-pink-100 mb-4">
                         <div class="flex justify-between items-center">
                             <label class="text-[10px] font-bold text-pink-400">PRIX BIJOUX (€)</label>
                             <input type="number" id="prix-bijoux-${c.id}" value="${c.total}" step="0.01" class="w-20 p-1 text-right rounded border-none bg-white text-sm font-bold">
                         </div>
-                        <div class="flex justify-between items-center">
-                            <label class="text-[10px] font-bold text-pink-400">PORT (€)</label>
-                            <input type="number" id="port-custom-${c.id}" value="${c.total >= document.getElementById('global-seuil').value ? 0 : document.getElementById('global-port').value}" step="0.1" class="w-20 p-1 text-right rounded border-none bg-white text-sm font-bold">
-                        </div>
                     </div>
 
-                    <div class="flex gap-2 mt-4">
-                        <button onclick="validerEtEnvoyer('${c.id}', '${c.client_email}', \`${c.contenu}\`)" class="flex-1 bg-green-500 text-white py-3 rounded-xl text-[10px] font-black uppercase shadow-md active:scale-95 transition">
-                            ✅ Valider & Envoyer Wero
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="validerEtEnvoyer('${c.id}', '${c.client_email}', \`${c.contenu.replace(/`/g, "'")}\`)" class="col-span-2 bg-green-500 text-white py-3 rounded-xl text-[10px] font-black uppercase shadow-md active:scale-95 transition">
+                            ✅ Valider & WhatsApp
                         </button>
-                        <button onclick="supprimerCommande('${c.id}')" class="bg-gray-100 p-3 rounded-xl text-xs">🗑️</button>
+                        
+                        <button onclick="changerStatut('${c.id}', 'Payée')" class="bg-blue-500 text-white py-2 rounded-xl text-[10px] font-black uppercase shadow-sm">
+                            💰 Payée
+                        </button>
+                        
+                        <button onclick="expedierEtWhatsApp('${c.id}', \`${c.contenu.replace(/`/g, "'")}\`)" class="bg-purple-500 text-white py-2 rounded-xl text-[10px] font-black uppercase shadow-sm">
+                            📦 Expédier
+                        </button>
                     </div>
+
+                    <button onclick="supprimerCommande('${c.id}')" class="w-full mt-3 bg-gray-100 py-1 rounded-lg text-xs opacity-50">🗑️ Supprimer</button>
                 </div>
-            `).join('');
+            `}).join('');
         }
 
-        async function validerEtEnvoyer(id, nom, blocContenu) {
-            const prixB = parseFloat(document.getElementById(`prix-bijoux-${id}`).value);
-            const prixP = parseFloat(document.getElementById(`port-custom-${id}`).value);
-            const totalFinal = (prixB + prixP).toFixed(2);
+        async function changerStatut(id, statut) {
+            const { error } = await _supabase.from('commande').update({ statut: statut }).eq('id', id);
+            if (!error) {
+                alert("Statut mis à jour : " + statut);
+                chargerCommandes();
+            }
+        }
 
-            // Extraction du TEL client
+        async function validerEtEnvoyer(id, email, blocContenu) {
+            const prixB = parseFloat(document.getElementById(`prix-bijoux-${id}`).value);
+            const port = prixB >= parseFloat(document.getElementById('global-seuil').value) ? 0 : parseFloat(document.getElementById('global-port').value);
+            const totalFinal = (prixB + port).toFixed(2);
+
             const match = blocContenu.match(/Tel:\s*(\d+)/);
             let telClient = match ? match[1] : null;
 
@@ -109,20 +127,33 @@
             }).eq('id', id);
 
             if (!error) {
-                const msg = `Coucou ${nom} ! C'est Lydie 🌸. Stock validé ✅.\n\nBijoux : ${prixB.toFixed(2)}€\nPort : ${prixP === 0 ? 'OFFERT' : prixP.toFixed(2)+'€'}\nTOTAL : ${totalFinal}€\n\nTu peux faire ton Wero sur mon numéro. Merci ! ✨`;
-                
+                const msg = `Coucou 🌸. Stock validé ✅.\n\nTotal : ${totalFinal}€ (Port : ${port === 0 ? 'OFFERT' : port+'€'})\n\nTu peux faire ton Wero sur mon numéro. Merci ! ✨`;
                 if(telClient) {
                     if(telClient.startsWith('0')) telClient = '33' + telClient.substring(1);
-                    window.location.href = `https://wa.me/${telClient}?text=${encodeURIComponent(msg)}`;
-                } else {
-                    alert("Numéro client non trouvé dans le texte.");
+                    window.open(`https://wa.me/${telClient}?text=${encodeURIComponent(msg)}`, '_blank');
+                }
+                chargerCommandes();
+            }
+        }
+
+        async function expedierEtWhatsApp(id, blocContenu) {
+            const { error } = await _supabase.from('commande').update({ statut: 'Expédiée' }).eq('id', id);
+            
+            if (!error) {
+                const match = blocContenu.match(/Tel:\s*(\d+)/);
+                let telClient = match ? match[1] : null;
+
+                if (telClient) {
+                    if(telClient.startsWith('0')) telClient = '33' + telClient.substring(1);
+                    const msg = encodeURIComponent("Bonne nouvelle ! ✨ Votre commande 'Les Boucles de Lydie' a été expédiée. Elle arrive bientôt ! 🌸");
+                    window.open(`https://wa.me/${telClient}?text=${msg}`, '_blank');
                 }
                 chargerCommandes();
             }
         }
 
         async function supprimerCommande(id) {
-            if (confirm("Supprimer ?")) {
+            if (confirm("Supprimer définitivement ?")) {
                 const { error } = await _supabase.from('commande').delete().eq('id', id);
                 if (!error) chargerCommandes();
             }
