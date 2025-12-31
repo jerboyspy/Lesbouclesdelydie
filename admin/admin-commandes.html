@@ -20,9 +20,19 @@
     </nav>
 
     <div class="max-w-md mx-auto p-4">
+
+        <div class="bg-gray-900 text-white p-6 rounded-[40px] mb-6 shadow-xl border-b-4 border-pink-500">
+            <h3 class="text-[10px] font-black uppercase text-pink-400 mb-4 tracking-widest text-center">💰 Recettes Encaissées</h3>
+            <div id="stats-mois" class="space-y-3 mb-6">
+                <p class="text-center text-xs text-gray-500 italic">Analyse des recettes...</p>
+            </div>
+            <button onclick="telechargerBilan()" class="w-full bg-white/10 hover:bg-white/20 py-3 rounded-2xl text-[10px] font-bold uppercase transition border border-white/5 flex items-center justify-center gap-2">
+                📥 Télécharger le bilan .txt
+            </button>
+        </div>
         
         <div class="bg-white p-4 rounded-2xl shadow-sm mb-6 border border-pink-100">
-            <h3 class="text-[10px] font-black uppercase text-pink-400 mb-3">Réglages Livraison standard</h3>
+            <h3 class="text-[10px] font-black uppercase text-pink-400 mb-3 text-center">Configuration Ports</h3>
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <label class="text-[9px] font-bold text-gray-400">Prix Port (€)</label>
@@ -42,6 +52,7 @@
 
     <script>
         const _supabase = supabase.createClient("https://rsebvgdneetbbmdchwil.supabase.co", "sb_publishable_c_U9tbQzawyqAVuLTEYWWA_XBW6Fbs6");
+        let allData = [];
 
         netlifyIdentity.on('init', user => {
             if (!user || user.email.toLowerCase() !== "lydie90@wanadoo.fr") {
@@ -52,104 +63,119 @@
             }
         });
 
-        netlifyIdentity.on('logout', () => window.location.href = "/");
-
         async function chargerCommandes() {
             const { data, error } = await _supabase.from('commande').select('*').order('created_at', { ascending: false });
             if (error) return;
+            allData = data;
 
+            // --- CALCUL DES RECETTES ---
+            const statsContainer = document.getElementById('stats-mois');
+            const recettesParMois = {};
+            
+            data.filter(c => c.statut === 'Clôturée').forEach(c => {
+                const moisAnnee = new Date(c.created_at).toLocaleString('fr-FR', { month: 'long', year: 'numeric' });
+                recettesParMois[moisAnnee] = (recettesParMois[moisAnnee] || 0) + parseFloat(c.total);
+            });
+
+            statsContainer.innerHTML = Object.entries(recettesParMois).map(([mois, total]) => `
+                <div class="flex justify-between items-center border-b border-white/5 pb-2">
+                    <span class="text-[10px] font-bold uppercase text-gray-400 capitalize">${mois}</span>
+                    <span class="text-lg font-black text-pink-400">${total.toFixed(2)}€</span>
+                </div>
+            `).join('') || '<p class="text-center text-xs text-gray-500 italic">Aucune recette encaissée.</p>';
+
+            // --- LISTE COMMANDES ---
             const container = document.getElementById('liste-admin');
-            if (!data || data.length === 0) {
-                container.innerHTML = '<p class="text-center py-10 text-gray-400 italic">Aucune commande.</p>';
-                return;
-            }
-
             container.innerHTML = data.map(c => {
-                let colorClass = "bg-orange-100 text-orange-700";
-                if (c.statut === 'Validée') colorClass = "bg-green-100 text-green-700";
-                if (c.statut === 'Payée') colorClass = "bg-blue-100 text-blue-700";
-                if (c.statut === 'Expédiée') colorClass = "bg-purple-100 text-purple-700";
+                const statusColors = {
+                    'En attente': 'bg-orange-100 text-orange-700',
+                    'Validée': 'bg-green-100 text-green-700',
+                    'Payée': 'bg-blue-100 text-blue-700',
+                    'Expédiée': 'bg-purple-100 text-purple-700',
+                    'Clôturée': 'bg-gray-200 text-gray-500'
+                };
 
                 return `
-                <div class="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 mb-4">
+                <div class="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 mb-4 ${c.statut === 'Clôturée' ? 'opacity-60' : ''}">
                     <div class="flex justify-between items-start mb-4">
-                        <p class="font-bold text-gray-800 text-sm">${c.client_email}</p>
-                        <span class="text-[9px] font-black px-2 py-1 rounded-full uppercase ${colorClass}">${c.statut}</span>
+                        <div class="w-2/3">
+                            <p class="font-bold text-gray-800 text-sm truncate">${c.client_email}</p>
+                            <p class="text-[9px] text-gray-400 uppercase font-medium">${new Date(c.created_at).toLocaleDateString('fr-FR')}</p>
+                        </div>
+                        <span class="text-[9px] font-black px-2 py-1 rounded-full uppercase ${statusColors[c.statut]}">${c.statut}</span>
                     </div>
 
-                    <div class="bg-gray-50 p-3 rounded-xl text-[11px] text-gray-500 mb-4 whitespace-pre-wrap">${c.contenu}</div>
+                    <div class="bg-gray-50 p-3 rounded-xl text-[10px] text-gray-500 mb-4 whitespace-pre-wrap italic border border-gray-100/50">${c.contenu}</div>
 
-                    <div class="space-y-3 bg-pink-50/50 p-3 rounded-2xl border border-pink-100 mb-4">
+                    ${c.statut !== 'Clôturée' ? `
+                    <div class="bg-pink-50/50 p-3 rounded-2xl border border-pink-100 mb-4">
                         <div class="flex justify-between items-center">
-                            <label class="text-[10px] font-bold text-pink-400">PRIX BIJOUX (€)</label>
-                            <input type="number" id="prix-bijoux-${c.id}" value="${c.total}" step="0.01" class="w-20 p-1 text-right rounded border-none bg-white text-sm font-bold">
+                            <label class="text-[10px] font-bold text-pink-400">PRIX FINAL (€)</label>
+                            <input type="number" id="prix-bijoux-${c.id}" value="${c.total}" step="0.01" class="w-20 p-1 text-right rounded-lg border-none bg-white text-sm font-bold shadow-sm">
                         </div>
                     </div>
 
                     <div class="grid grid-cols-2 gap-2">
-                        <button onclick="validerEtEnvoyer('${c.id}', '${c.client_email}', \`${c.contenu.replace(/`/g, "'")}\`)" class="col-span-2 bg-green-500 text-white py-3 rounded-xl text-[10px] font-black uppercase shadow-md active:scale-95 transition">
-                            ✅ Valider & WhatsApp
-                        </button>
-                        
-                        <button onclick="changerStatut('${c.id}', 'Payée')" class="bg-blue-500 text-white py-2 rounded-xl text-[10px] font-black uppercase shadow-sm">
-                            💰 Payée
-                        </button>
-                        
-                        <button onclick="expedierEtWhatsApp('${c.id}', \`${c.contenu.replace(/`/g, "'")}\`)" class="bg-purple-500 text-white py-2 rounded-xl text-[10px] font-black uppercase shadow-sm">
-                            📦 Expédier
-                        </button>
+                        <button onclick="validerEtNotifier('${c.id}', \`${c.contenu.replace(/`/g, "'")}\`)" class="col-span-2 bg-green-500 text-white py-3 rounded-xl text-[10px] font-black uppercase shadow-md active:scale-95 transition">✅ Valider & WhatsApp</button>
+                        <button onclick="changerEtNotifier('${c.id}', 'Payée', '💰 Coucou ! Paiement bien reçu. ✨ Je prépare ton colis avec amour. Lydie', \`${c.contenu.replace(/`/g, "'")}\`)" class="bg-blue-500 text-white py-2 rounded-xl text-[10px] font-black uppercase">💰 Payée</button>
+                        <button onclick="changerEtNotifier('${c.id}', 'Expédiée', '📦 Bonne nouvelle ! Ton colis Les Boucles de Lydie est en route ! 🌸', \`${c.contenu.replace(/`/g, "'")}\` )" class="bg-purple-500 text-white py-2 rounded-xl text-[10px] font-black uppercase">📦 Expédier</button>
                     </div>
+                    ` : ''}
 
-                    <button onclick="supprimerCommande('${c.id}')" class="w-full mt-3 bg-gray-100 py-1 rounded-lg text-xs opacity-50">🗑️ Supprimer</button>
-                </div>
-            `}).join('');
+                    <button onclick="supprimerCommande('${c.id}')" class="w-full mt-3 text-[9px] text-gray-300 font-bold uppercase tracking-widest py-2">🗑️ Supprimer de l'historique</button>
+                </div>`;
+            }).join('');
         }
 
-        async function changerStatut(id, statut) {
+        async function changerEtNotifier(id, statut, message, bloc) {
             const { error } = await _supabase.from('commande').update({ statut: statut }).eq('id', id);
             if (!error) {
-                alert("Statut mis à jour : " + statut);
+                ouvrirWhatsApp(bloc, message);
                 chargerCommandes();
             }
         }
 
-        async function validerEtEnvoyer(id, email, blocContenu) {
-            const prixB = parseFloat(document.getElementById(`prix-bijoux-${id}`).value);
-            const port = prixB >= parseFloat(document.getElementById('global-seuil').value) ? 0 : parseFloat(document.getElementById('global-port').value);
-            const totalFinal = (prixB + port).toFixed(2);
-
-            const match = blocContenu.match(/Tel:\s*(\d+)/);
-            let telClient = match ? match[1] : null;
-
-            const { error } = await _supabase.from('commande').update({ 
-                total: parseFloat(totalFinal),
-                statut: 'Validée' 
-            }).eq('id', id);
-
+        async function validerEtNotifier(id, bloc) {
+            const prixFinal = parseFloat(document.getElementById(`prix-bijoux-${id}`).value);
+            const { error } = await _supabase.from('commande').update({ total: prixFinal, statut: 'Validée' }).eq(id, id);
             if (!error) {
-                const msg = `Coucou 🌸. Stock validé ✅.\n\nTotal : ${totalFinal}€ (Port : ${port === 0 ? 'OFFERT' : port+'€'})\n\nTu peux faire ton Wero sur mon numéro. Merci ! ✨`;
-                if(telClient) {
-                    if(telClient.startsWith('0')) telClient = '33' + telClient.substring(1);
-                    window.open(`https://wa.me/${telClient}?text=${encodeURIComponent(msg)}`, '_blank');
-                }
+                const msg = `Coucou 🌸 C'est Lydie. Stock validé ! ✅\nTotal : ${prixFinal.toFixed(2)}€.\nTu peux faire ton Wero sur mon numéro. Merci ! ✨`;
+                ouvrirWhatsApp(bloc, msg);
                 chargerCommandes();
             }
         }
 
-        async function expedierEtWhatsApp(id, blocContenu) {
-            const { error } = await _supabase.from('commande').update({ statut: 'Expédiée' }).eq('id', id);
-            
-            if (!error) {
-                const match = blocContenu.match(/Tel:\s*(\d+)/);
-                let telClient = match ? match[1] : null;
-
-                if (telClient) {
-                    if(telClient.startsWith('0')) telClient = '33' + telClient.substring(1);
-                    const msg = encodeURIComponent("Bonne nouvelle ! ✨ Votre commande 'Les Boucles de Lydie' a été expédiée. Elle arrive bientôt ! 🌸");
-                    window.open(`https://wa.me/${telClient}?text=${msg}`, '_blank');
-                }
-                chargerCommandes();
+        function ouvrirWhatsApp(bloc, message) {
+            const match = bloc.match(/Tel:\s*(\d+)/);
+            if (match && match[1]) {
+                let tel = match[1];
+                if(tel.startsWith('0')) tel = '33' + tel.substring(1);
+                window.open(`https://wa.me/${tel}?text=${encodeURIComponent(message)}`, '_blank');
+            } else {
+                alert("Numéro non trouvé, statut mis à jour sans envoi WhatsApp.");
             }
+        }
+
+        function telechargerBilan() {
+            const clôturées = allData.filter(c => c.statut === 'Clôturée');
+            if (clôturées.length === 0) return alert("Aucune commande clôturée à exporter.");
+
+            let contenu = "BILAN DES VENTES - LES BOUCLES DE LYDIE\n";
+            contenu += "========================================\n\n";
+
+            clôturées.forEach(c => {
+                contenu += `DATE: ${new Date(c.created_at).toLocaleDateString()}\n`;
+                contenu += `CLIENT: ${c.client_email}\n`;
+                contenu += `TOTAL: ${c.total}€\n`;
+                contenu += `DETAILS: ${c.contenu.replace(/\n/g, ' ')}\n`;
+                contenu += "----------------------------------------\n";
+            });
+
+            const blob = new Blob([contenu], { type: 'text/plain' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `bilan_lydie_${new Date().getMonth()+1}_${new Date().getFullYear()}.txt`;
+            link.click();
         }
 
         async function supprimerCommande(id) {
