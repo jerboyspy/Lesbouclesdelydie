@@ -54,7 +54,6 @@
         const _supabase = supabase.createClient("https://rsebvgdneetbbmdchwil.supabase.co", "sb_publishable_c_U9tbQzawyqAVuLTEYWWA_XBW6Fbs6");
         let allData = [];
 
-        // Gestion de l'authentification Netlify
         netlifyIdentity.on('init', user => {
             if (!user || user.email.toLowerCase() !== "lydie90@wanadoo.fr") window.location.href = "/";
             else { document.body.style.display = "block"; chargerCommandes(); }
@@ -65,7 +64,6 @@
             if (error) return;
             allData = data;
 
-            // Mise à jour des statistiques mensuelles
             const statsContainer = document.getElementById('stats-mois');
             const gainsParMois = {};
             
@@ -73,7 +71,6 @@
                 const mois = new Date(c.created_at).toLocaleString('fr-FR', { month: 'long', year: 'numeric' });
                 const totalClient = parseFloat(c.total) || 0;
                 const portEffectif = parseFloat(c.frais_port) || 0;
-                
                 const gainNet = totalClient - portEffectif;
                 gainsParMois[mois] = (gainsParMois[mois] || 0) + gainNet;
             });
@@ -85,16 +82,9 @@
                 </div>
             `).join('') || '<p class="text-center text-xs text-gray-500 italic">Aucun gain clôturé.</p>';
 
-            // Affichage des cartes de commandes
             const container = document.getElementById('liste-admin');
             container.innerHTML = data.map(c => {
-                const sColors = { 
-                    'En attente': 'bg-orange-100 text-orange-700', 
-                    'Validée': 'bg-green-100 text-green-700', 
-                    'Payée': 'bg-blue-100 text-blue-700', 
-                    'Expédiée': 'bg-purple-100 text-purple-700', 
-                    'Clôturée': 'bg-gray-200 text-gray-500' 
-                };
+                const sColors = { 'En attente': 'bg-orange-100 text-orange-700', 'Validée': 'bg-green-100 text-green-700', 'Payée': 'bg-blue-100 text-blue-700', 'Expédiée': 'bg-purple-100 text-purple-700', 'Clôturée': 'bg-gray-200 text-gray-500' };
                 
                 const portParDefaut = (c.frais_port !== undefined && c.frais_port !== null) 
                     ? c.frais_port 
@@ -136,22 +126,10 @@
             }).join('');
         }
 
-        async function changerStatut(id, statut, message, bloc) {
-            const { error } = await _supabase.from('commande').update({ statut: statut }).eq('id', id);
-            if (!error) {
-                ouvrirWhatsApp(bloc, message);
-                chargerCommandes();
-            }
-        }
-
         async function validerAction(id, bloc) {
             const elPrix = document.getElementById(`prix-final-${id}`);
             const elPort = document.getElementById(`port-${id}`);
-
-            if (!elPrix || !elPort) {
-                alert("Erreur : Impossible de lire les montants.");
-                return;
-            }
+            if (!elPrix || !elPort) return;
 
             const prixFinal = parseFloat(elPrix.value);
             const fraisPort = parseFloat(elPort.value);
@@ -171,35 +149,46 @@
             }
         }
 
+        async function changerStatut(id, statut, message, bloc) {
+            const { error } = await _supabase.from('commande').update({ statut: statut }).eq('id', id);
+            if (!error) {
+                ouvrirWhatsApp(bloc, message);
+                chargerCommandes();
+            }
+        }
+
         function ouvrirWhatsApp(bloc, message) {
-            const match = bloc.match(/Tel:\s*([\d\s]+)/);
+            // Nettoyage plus agressif pour trouver le numéro après "Tel:"
+            const match = bloc.match(/Tel:\s*([\d\s\+\.]+)/);
             if (match && match[1]) {
-                let tel = match[1].replace(/\s/g, '');
+                let tel = match[1].replace(/[\s\+\.]/g, ''); // Enlève espaces, +, points
                 if(tel.startsWith('0')) tel = '33' + tel.substring(1);
-                else if (!tel.startsWith('33')) tel = '33' + tel;
-                window.open(`https://wa.me/${tel}?text=${encodeURIComponent(message)}`, '_blank');
+                if(!tel.startsWith('33')) tel = '33' + tel;
+                
+                const url = `https://wa.me/${tel}?text=${encodeURIComponent(message)}`;
+                const win = window.open(url, '_blank');
+                
+                // Sécurité si le navigateur bloque l'ouverture
+                if (!win) {
+                    alert("WhatsApp a été bloqué par ton navigateur. Autorise les pop-ups pour ce site.");
+                }
             } else {
-                alert("Numéro WhatsApp non trouvé dans les détails.");
+                alert("Impossible de trouver le numéro de téléphone dans les détails de la commande.");
             }
         }
 
         function telechargerBilan() {
             const cloturees = allData.filter(c => c.statut === 'Clôturée');
             let totalNetGlobal = 0;
-
             let txt = "BILAN GAINS BIJOUX - LES BOUCLES DE LYDIE\n========================================\n\n";
             cloturees.forEach(c => {
                 const t = parseFloat(c.total);
                 const port = parseFloat(c.frais_port) || 0;
                 const net = t - port;
                 totalNetGlobal += net;
-
-                txt += `${new Date(c.created_at).toLocaleDateString()} | ${c.client_email}\n`;
-                txt += `Gain Net: ${net.toFixed(2)}€ (Port: ${port.toFixed(2)}€ | Total Payé: ${t.toFixed(2)}€)\n`;
-                txt += `----------------------------------------\n`;
+                txt += `${new Date(c.created_at).toLocaleDateString()} | ${c.client_email}\nGain Net: ${net.toFixed(2)}€ (Port: ${port.toFixed(2)}€ | Total: ${t.toFixed(2)}€)\n----------------------------------------\n`;
             });
             txt += `\nTOTAL NET RÉCOLTÉ (HORS PORT) : ${totalNetGlobal.toFixed(2)}€`;
-
             const blob = new Blob([txt], { type: 'text/plain' });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
