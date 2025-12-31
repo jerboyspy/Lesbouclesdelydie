@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Suivi Commande - Lydie</title>
+    <title>Suivi Commande - Les Boucles de Lydie</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -11,44 +11,91 @@
     <div class="max-w-md mx-auto text-center">
         <h1 class="text-3xl font-black text-pink-600 mb-8 italic">Suivi de commande</h1>
         
-        <div id="status-card" class="bg-white p-8 rounded-3xl shadow-xl border border-pink-100">
-            <p class="text-gray-400 text-sm mb-2">Commande #<span id="cmd-id">...</span></p>
-            <div id="statut-badge" class="inline-block px-4 py-2 rounded-full font-bold uppercase text-xs mb-6">Chargement...</div>
+        <div id="status-card" class="bg-white p-8 rounded-[40px] shadow-xl border border-pink-100 transition-all duration-500">
+            <p class="text-gray-400 text-[10px] font-bold uppercase mb-2">Commande #<span id="cmd-id">...</span></p>
             
-            <div id="info-paiement" class="hidden bg-blue-50 p-4 rounded-2xl text-blue-700 text-sm mb-4">
-                Lydie a validé ! Le montant final est de <span id="montant-final" class="font-black"></span>. Vous pouvez payer par Wero.
+            <div id="statut-badge" class="inline-block px-4 py-2 rounded-full font-black uppercase text-[10px] mb-6 tracking-widest">
+                Chargement...
             </div>
+            
+            <div id="zone-alerte" class="hidden p-4 rounded-2xl text-sm mb-6 font-medium">
+                </div>
 
-            <p id="message-statut" class="text-gray-600 italic">Nous vérifions vos articles...</p>
+            <div class="relative py-4">
+                <p id="message-statut" class="text-gray-600 italic text-sm">Nous vérifions vos articles...</p>
+                <div id="animation-container" class="mt-4 text-4xl"></div>
+            </div>
         </div>
 
-        <a href="/" class="block mt-10 text-pink-400 font-bold">← Retour à la boutique</a>
+        <a href="/mes-commandes.html" class="block mt-10 text-gray-400 text-sm font-bold uppercase tracking-tighter">← Retour à mes commandes</a>
     </div>
 
     <script>
         const _supabase = supabase.createClient("https://rsebvgdneetbbmdchwil.supabase.co", "sb_publishable_c_U9tbQzawyqAVuLTEYWWA_XBW6Fbs6");
         const urlParams = new URLSearchParams(window.location.search);
         const id = urlParams.get('id');
-        document.getElementById('cmd-id').innerText = id;
+        
+        if(id) document.getElementById('cmd-id').innerText = id;
 
         async function rafraichir() {
-            const { data } = await _supabase.from('commande').select('*').eq('id', id).single();
+            if(!id) return;
+            
+            const { data, error } = await _supabase.from('commande').select('*').eq('id', id).single();
+            
             if(data) {
                 const badge = document.getElementById('statut-badge');
+                const alerte = document.getElementById('zone-alerte');
+                const message = document.getElementById('message-statut');
+                const anim = document.getElementById('animation-container');
+                
                 badge.innerText = data.statut;
                 
+                // Réinitialisation des classes
+                alerte.classList.add('hidden');
+                anim.innerHTML = "";
+
                 if(data.statut === 'En attente') {
-                    badge.className = "bg-orange-100 text-orange-600 px-4 py-2 rounded-full font-bold uppercase text-xs mb-6";
-                } else if(data.statut === 'Validée') {
-                    badge.className = "bg-green-100 text-green-600 px-4 py-2 rounded-full font-bold uppercase text-xs mb-6";
-                    document.getElementById('info-paiement').classList.remove('hidden');
-                    document.getElementById('montant-final').innerText = data.total + "€";
-                    document.getElementById('message-statut').innerText = "En attente de votre paiement Wero.";
+                    badge.className = "inline-block px-4 py-2 rounded-full font-black uppercase text-[10px] mb-6 bg-orange-100 text-orange-600";
+                    message.innerText = "Lydie vérifie la disponibilité de vos articles...";
+                    anim.innerHTML = "🔍";
+                } 
+                else if(data.statut === 'Validée') {
+                    badge.className = "inline-block px-4 py-2 rounded-full font-black uppercase text-[10px] mb-6 bg-green-100 text-green-600";
+                    alerte.className = "bg-green-50 p-4 rounded-2xl text-green-700 text-sm mb-6 block border border-green-100";
+                    alerte.innerHTML = `✨ <b>Validée !</b> Le montant final est de <b>${parseFloat(data.total).toFixed(2)}€</b>.<br>Vous pouvez régler par Wero.`;
+                    alerte.classList.remove('hidden');
+                    message.innerText = "En attente de votre paiement.";
+                    anim.innerHTML = "💸";
+                }
+                else if(data.statut === 'Payée') {
+                    badge.className = "inline-block px-4 py-2 rounded-full font-black uppercase text-[10px] mb-6 bg-blue-100 text-blue-600";
+                    message.innerText = "Paiement bien reçu ! Lydie prépare votre colis avec amour.";
+                    anim.innerHTML = "🎁";
+                }
+                else if(data.statut === 'Expédiée') {
+                    badge.className = "inline-block px-4 py-2 rounded-full font-black uppercase text-[10px] mb-6 bg-purple-100 text-purple-600";
+                    message.innerText = "Votre colis est en route !";
+                    anim.innerHTML = "🚚";
+                    // Petit effet visuel pour le camion
+                    anim.classList.add('animate-bounce');
                 }
             }
         }
-        setInterval(rafraichir, 5000); // Vérifie toutes les 5 secondes
+
+        // Vérification toutes les 5 secondes pour un suivi "Live"
+        setInterval(rafraichir, 5000);
         rafraichir();
     </script>
+
+    <style>
+        @keyframes bounce {
+            0%, 100% { transform: translateX(-10px); }
+            50% { transform: translateX(10px); }
+        }
+        .animate-bounce {
+            display: inline-block;
+            animation: bounce 2s infinite ease-in-out;
+        }
+    </style>
 </body>
 </html>
