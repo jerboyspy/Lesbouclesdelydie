@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mes Commandes - Les Boucles de Lydie</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+</head>
+<body class="bg-gray-50 p-4 font-sans text-gray-800">
+    <div class="max-w-lg mx-auto">
+        <div class="flex items-center gap-4 mb-8">
+            <a href="/" class="text-2xl">←</a>
+            <h1 class="text-2xl font-black italic text-pink-600">Mes Commandes</h1>
+        </div>
+
+        <div id="liste-commandes" class="space-y-4">
+            <p class="text-center py-10 text-gray-400 italic">Vérification de votre compte...</p>
+        </div>
+    </div>
+
+    <script>
+        const _supabase = supabase.createClient("https://rsebvgdneetbbmdchwil.supabase.co", "sb_publishable_c_U9tbQzawyqAVuLTEYWWA_XBW6Fbs6");
+
+        netlifyIdentity.on('init', user => {
+            if (!user) {
+                window.location.href = "/";
+            } else {
+                chargerMesCommandes(user.email);
+            }
+        });
+
+        async function chargerMesCommandes(emailClient) {
+            const container = document.getElementById('liste-commandes');
+            
+            // On cherche dans la table 'commande' les lignes où le contenu contient l'email
+            // ou là où client_email correspond (selon comment tu as enregistré l'info)
+            const { data, error } = await _supabase
+                .from('commande')
+                .select('*')
+                .or(`client_email.eq."${emailClient}",contenu.ilike."%${emailClient}%"`)
+                .order('created_at', { ascending: false });
+
+            if (error || !data || data.length === 0) {
+                container.innerHTML = "<p class='text-center py-10 italic text-gray-400'>Vous n'avez pas encore passé de commande ou reconnectez-vous.</p>";
+                return;
+            }
+
+            container.innerHTML = data.map(c => {
+                let statusColor = "bg-orange-100 text-orange-600";
+                if(c.statut === 'Validée') statusColor = "bg-green-100 text-green-600";
+                
+                return `
+                <div class="bg-white p-6 rounded-[30px] shadow-sm border border-gray-100">
+                    <div class="flex justify-between items-start mb-4">
+                        <span class="text-[10px] text-gray-400 font-bold uppercase">${new Date(c.created_at).toLocaleDateString()}</span>
+                        <span class="px-3 py-1 rounded-full text-[9px] font-black uppercase ${statusColor}">${c.statut}</span>
+                    </div>
+                    <div class="text-sm text-gray-600 mb-4 whitespace-pre-line bg-gray-50 p-3 rounded-xl">
+                        ${c.contenu.split('Produits:')[1] || c.contenu}
+                    </div>
+                    <div class="flex justify-between items-center font-black text-pink-600">
+                        <span>Total</span>
+                        <span>${parseFloat(c.total).toFixed(2)}€</span>
+                    </div>
+                    <a href="/suivi.html?id=${c.id}" class="block text-center mt-4 text-[10px] text-gray-400 underline uppercase font-bold">Voir le détail en direct</a>
+                </div>
+                `;
+            }).join('');
+        }
+    </script>
+</body>
+</html>
