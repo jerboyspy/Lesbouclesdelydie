@@ -18,23 +18,20 @@
             <div class="bg-white p-6 rounded-3xl shadow-sm border border-pink-100 space-y-4">
                 <h2 class="font-bold text-gray-400 uppercase text-[10px]">Tes coordonnées</h2>
                 <input type="text" id="nom" placeholder="Ton Nom et Prénom" class="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-pink-300" required>
-                <input type="email" id="email" placeholder="Email (pour le suivi)" class="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-pink-300" required>
-                <textarea id="adresse" placeholder="Adresse complète de livraison (Rue, CP, Ville)" class="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-pink-300" rows="3" required></textarea>
+                <input type="email" id="email" placeholder="Email" class="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-pink-300" required>
+                <textarea id="adresse" placeholder="Adresse complète de livraison" class="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-pink-300" rows="3" required></textarea>
             </div>
 
             <div class="bg-white p-6 rounded-3xl shadow-xl border border-pink-100">
                 <div class="flex justify-between text-2xl font-black text-pink-600 mb-4">
-                    <span>Total</span>
+                    <span>Total estimé</span>
                     <span id="total-display">0.00€</span>
                 </div>
-
                 <div class="bg-blue-50 p-4 rounded-2xl mb-6 border border-blue-100">
-                    <p class="text-sm font-bold text-blue-700">📋 Validation par Lydie</p>
-                    <p class="text-[11px] text-blue-600 mt-1 italic">
-                        Une fois ta demande envoyée, Lydie vérifiera son stock. Tu recevras ensuite un message pour effectuer le paiement Wero.
+                    <p class="text-[11px] text-blue-600 italic text-center">
+                        Lydie va vérifier votre commande et vous enverra le montant final (avec ajustement possible des frais de port) pour le paiement Wero.
                     </p>
                 </div>
-
                 <button type="submit" id="btn-submit" class="w-full bg-pink-500 text-white py-5 rounded-2xl font-black uppercase shadow-lg active:scale-95 transition">
                     📩 Demander la validation
                 </button>
@@ -43,53 +40,34 @@
     </div>
 
     <script>
-        // Configuration Supabase
         const _supabase = supabase.createClient("https://rsebvgdneetbbmdchwil.supabase.co", "sb_publishable_c_U9tbQzawyqAVuLTEYWWA_XBW6Fbs6");
-        
-        // Récupération du panier
         let panier = JSON.parse(localStorage.getItem('panier')) || [];
         
-        // Calcul du total avec frais de port
         const st = panier.reduce((sum, item) => sum + parseFloat(item.prix), 0);
-        const port = (st >= 50 || st === 0) ? 0 : 4.50;
-        const total = (st + port).toFixed(2);
-        document.getElementById('total-display').innerText = total + "€";
+        const portBase = (st >= 50 || st === 0) ? 0 : 4.50;
+        const totalInit = (st + portBase).toFixed(2);
+        document.getElementById('total-display').innerText = totalInit + "€";
 
         document.getElementById('form-commande').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = document.getElementById('btn-submit');
             const nom = document.getElementById('nom').value;
-            const email = document.getElementById('email').value;
-            const adresse = document.getElementById('adresse').value;
             const contenu = panier.map(p => `- ${p.titre} (${p.prix}€)`).join('\n');
 
             btn.disabled = true;
-            btn.innerText = "⏳ ENVOI EN COURS...";
-
             try {
-                // Enregistrement dans la table "commande" (sans S)
                 const { error } = await _supabase.from('commande').insert([{
                     client_email: nom, 
-                    contenu: `Email: ${email}\nAdresse: ${adresse}\n\nProduits:\n${contenu}`,
-                    total: parseFloat(total),
+                    contenu: `Email: ${document.getElementById('email').value}\nAdresse: ${document.getElementById('adresse').value}\n\nProduits:\n${contenu}`,
+                    total: parseFloat(totalInit),
                     statut: 'En attente'
                 }]);
-
                 if(error) throw error;
-
-                // Préparation du message WhatsApp
-                const messageWhatsApp = `Bonjour Lydie ! C'est ${nom}. J'aimerais commander :\n${contenu}\n\nTotal avec port : ${total}€.\nPeux-tu me confirmer si c'est ok pour le stock ? ✨`;
-                
-                // Redirection WhatsApp
-                window.location.href = `https://wa.me/33673460409?text=${encodeURIComponent(messageWhatsApp)}`;
-                
-                // Nettoyage du panier
+                window.location.href = `https://wa.me/33673460409?text=${encodeURIComponent("Bonjour Lydie, j'ai envoyé une demande de validation pour ma commande (Nom: "+nom+"). Merci !")}`;
                 localStorage.removeItem('panier');
-
             } catch (err) {
-                alert("Erreur lors de la commande : " + err.message);
+                alert(err.message);
                 btn.disabled = false;
-                btn.innerText = "📩 Demander la validation";
             }
         });
     </script>
