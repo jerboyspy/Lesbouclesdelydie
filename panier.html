@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mon Panier - Les Boucles de Lydie</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 </head>
 <body class="bg-gray-50 p-4 pb-20 font-sans text-gray-800">
     <div class="max-w-lg mx-auto">
@@ -31,9 +32,9 @@
                 <span id="total-final">0.00€</span>
             </div>
             
-            <p id="info-port" class="text-[10px] text-center text-pink-400 font-bold uppercase"></p>
+            <p id="info-port" class="text-[10px] text-center text-pink-400 font-bold uppercase min-h-[15px]"></p>
 
-            <button onclick="validerCommande()" class="w-full bg-pink-500 text-white py-5 rounded-2xl font-black uppercase shadow-lg mt-4">
+            <button onclick="validerCommande()" class="w-full bg-pink-500 text-white py-5 rounded-2xl font-black uppercase shadow-lg mt-4 active:scale-95 transition-transform">
                 Commander
             </button>
         </div>
@@ -45,7 +46,12 @@
         function afficherPanier() {
             const container = document.getElementById('liste-panier');
             if (panier.length === 0) {
-                container.innerHTML = "<p class='text-center py-10 text-gray-400'>Votre panier est vide 🌸</p>";
+                container.innerHTML = `
+                    <div class="text-center py-10">
+                        <p class="text-gray-400 mb-4">Votre panier est vide 🌸</p>
+                        <a href="/" class="text-pink-500 font-bold text-sm">Voir la collection</a>
+                    </div>`;
+                calculerTotal();
                 return;
             }
 
@@ -54,11 +60,11 @@
                     <div class="flex items-center gap-3">
                         <img src="${item.image}" class="w-16 h-16 rounded-xl object-cover">
                         <div>
-                            <p class="font-bold text-sm">${item.titre}</p>
-                            <p class="text-pink-500 font-bold">${item.prix}€</p>
+                            <p class="font-bold text-sm">${item.titre || item.nom}</p>
+                            <p class="text-pink-500 font-bold text-xs">${item.prix}€</p>
                         </div>
                     </div>
-                    <button onclick="retirer(${index})" class="text-red-300 p-2">🗑️</button>
+                    <button onclick="retirer(${index})" class="text-gray-300 hover:text-red-500 p-2 transition-colors">🗑️</button>
                 </div>
             `).join('');
 
@@ -67,17 +73,23 @@
 
         function calculerTotal() {
             const st = panier.reduce((sum, item) => sum + parseFloat(item.prix), 0);
-            const port = st >= 50 || st === 0 ? 0 : 4.50; // Gratuit dès 50€
+            // On récupère les réglages ou on utilise les valeurs par défaut
+            const portParDefaut = 4.50;
+            const seuilParDefaut = 50;
+            
+            const port = (st >= seuilParDefaut || st === 0) ? 0 : portParDefaut;
             
             document.getElementById('sous-total').innerText = st.toFixed(2) + "€";
             document.getElementById('frais-port').innerText = port === 0 ? "OFFERT" : port.toFixed(2) + "€";
             document.getElementById('total-final').innerText = (st + port).toFixed(2) + "€";
             
             const info = document.getElementById('info-port');
-            if(st < 50 && st > 0) {
-                info.innerText = `Plus que ${(50 - st).toFixed(2)}€ pour les frais de port gratuits !`;
-            } else if (st >= 50) {
+            if(st < seuilParDefaut && st > 0) {
+                info.innerText = `Plus que ${(seuilParDefaut - st).toFixed(2)}€ pour les frais de port gratuits !`;
+            } else if (st >= seuilParDefaut) {
                 info.innerText = "Félicitations ! Frais de port offerts 🎉";
+            } else {
+                info.innerText = "";
             }
         }
 
@@ -88,11 +100,26 @@
         }
 
         function validerCommande() {
-            // Ici, on redirigera vers le formulaire de livraison ou Stripe
+            if (panier.length === 0) {
+                alert("Votre panier est vide !");
+                return;
+            }
+
+            // Vérifier si l'utilisateur est connecté via Netlify Identity
+            const user = netlifyIdentity.currentUser();
+            
+            if (!user) {
+                alert("Veuillez vous connecter pour finaliser votre commande 🌸");
+                netlifyIdentity.open(); // Ouvre la fenêtre de connexion
+                return;
+            }
+
+            // Si connecté, on va vers la page de saisie des coordonnées (commande.html)
             window.location.href = "/commande.html";
         }
 
-        afficherPanier();
+        // Initialisation
+        document.addEventListener("DOMContentLoaded", afficherPanier);
     </script>
 </body>
 </html>
