@@ -17,8 +17,11 @@
 
     <nav class="bg-white shadow-sm p-4 sticky top-0 z-50 flex justify-between items-center">
         <h1 class="text-xl font-bold text-pink-600 italic">Les Boucles de Lydie</h1>
-        <div class="flex gap-3">
+        <div class="flex items-center gap-2">
+            <a href="/mes-commandes.html" id="btn-mes-commandes" class="hidden text-[10px] bg-pink-100 text-pink-600 px-3 py-2 rounded font-bold uppercase">📋 Mes Commandes</a>
+            
             <button onclick="netlifyIdentity.open()" id="auth-btn" class="text-[10px] bg-gray-100 px-3 py-2 rounded font-bold uppercase">👤 Connexion</button>
+            
             <a href="/panier.html" class="relative p-2 bg-pink-100 rounded-full">
                 🛒 <span id="cart-count" class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] px-1 rounded-full font-bold">0</span>
             </a>
@@ -36,18 +39,29 @@
     <script>
         const _supabase = supabase.createClient("https://rsebvgdneetbbmdchwil.supabase.co", "sb_publishable_c_U9tbQzawyqAVuLTEYWWA_XBW6Fbs6");
         
-        // On récupère le panier sauvegardé ou on crée un panier vide
         let panier = JSON.parse(localStorage.getItem('panier')) || [];
 
-        netlifyIdentity.on('init', user => {
-            if (user && user.email === "lydie90@wanadoo.fr") document.getElementById('admin-bar').classList.remove('hidden');
+        // Gestion de l'affichage selon la connexion
+        netlifyIdentity.on('init', user => handleAuth(user));
+        netlifyIdentity.on('login', user => { handleAuth(user); location.reload(); });
+        netlifyIdentity.on('logout', () => location.reload());
+
+        function handleAuth(user) {
+            if (user) {
+                // Si c'est Lydie, on montre la barre admin
+                if (user.email === "lydie90@wanadoo.fr") {
+                    document.getElementById('admin-bar').classList.remove('hidden');
+                }
+                // Pour TOUS les clients connectés, on montre "Mes Commandes"
+                document.getElementById('btn-mes-commandes').classList.remove('hidden');
+                document.getElementById('auth-btn').innerText = "👤 Déconnexion";
+            }
             chargerBoutique();
             updateCartCount();
-        });
+        }
 
         async function chargerBoutique() {
             const container = document.getElementById('produits-container');
-            // Récupération des produits. Note: vérifie si ta colonne s'appelle 'disponible' ou 'stock' > 0
             const { data, error } = await _supabase.from('produits').select('*').order('id', { ascending: false });
             
             if (error) {
@@ -66,15 +80,10 @@
         }
 
         function ajouterAuPanier(titre, prix, image) { 
-            // On ajoute l'objet complet au panier
             panier.push({ titre, prix, image }); 
-            
-            // On sauvegarde dans le téléphone de l'utilisateur
             localStorage.setItem('panier', JSON.stringify(panier));
-            
             updateCartCount();
             
-            // Petit retour visuel rapide au lieu d'une alerte bloquante
             const btn = event.target;
             const originalText = btn.innerText;
             btn.innerText = "✅ AJOUTÉ";
