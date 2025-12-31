@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+    <style>body { display: none; }</style>
 </head>
 <body class="bg-gray-50 text-gray-800 font-sans">
 
@@ -34,26 +35,37 @@
             </div>
         </div>
 
-        <div id="liste-admin" class="space-y-4 text-center py-10 text-gray-400 italic">Chargement...</div>
+        <div id="liste-admin" class="space-y-4">
+            <p class="text-center py-10 text-gray-400 italic">Chargement des commandes...</p>
+        </div>
     </div>
 
     <script>
         const _supabase = supabase.createClient("https://rsebvgdneetbbmdchwil.supabase.co", "sb_publishable_c_U9tbQzawyqAVuLTEYWWA_XBW6Fbs6");
 
-        window.addEventListener('load', () => {
-            const user = netlifyIdentity.currentUser();
+        // VERIFICATION DE SECURITE STRICTE
+        netlifyIdentity.on('init', user => {
             if (!user || user.email.toLowerCase() !== "lydie90@wanadoo.fr") {
-                window.location.href = "/";
+                window.location.href = "/"; // Redirection si ce n'est pas toi
             } else {
+                document.body.style.display = "block"; // Affiche la page
                 chargerCommandes();
             }
         });
+
+        // Sécurité en cas de déconnexion
+        netlifyIdentity.on('logout', () => window.location.href = "/");
 
         async function chargerCommandes() {
             const { data, error } = await _supabase.from('commande').select('*').order('created_at', { ascending: false });
             if (error) return;
 
             const container = document.getElementById('liste-admin');
+            if (!data || data.length === 0) {
+                container.innerHTML = '<p class="text-center py-10 text-gray-400 italic">Aucune commande pour le moment.</p>';
+                return;
+            }
+
             container.innerHTML = data.map(c => `
                 <div class="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 mb-4">
                     <div class="flex justify-between items-start mb-4">
@@ -78,7 +90,7 @@
                         <button onclick="validerEtEnvoyer('${c.id}', '${c.client_email}')" class="flex-1 bg-green-500 text-white py-3 rounded-xl text-[10px] font-black uppercase shadow-md active:scale-95 transition">
                             ✅ Valider & Envoyer Wero
                         </button>
-                        <button onclick="supprimerCommande('${c.id}')" class="bg-gray-100 p-3 rounded-xl">🗑️</button>
+                        <button onclick="supprimerCommande('${c.id}')" class="bg-gray-100 p-3 rounded-xl text-xs">🗑️</button>
                     </div>
                 </div>
             `).join('');
@@ -99,13 +111,15 @@
                 const msg = `Coucou ${nom} ! C'est bon pour moi, le stock est validé ✅.\n\nMontant bijoux : ${prixB.toFixed(2)}€\nFrais de port : ${prixP === 0 ? 'OFFERT' : prixP.toFixed(2)+'€'}\nTOTAL : ${totalFinal}€\n\nTu peux effectuer ton virement Wero sur mon numéro. Merci ! 🌸`;
                 window.location.href = `https://wa.me/33673460409?text=${encodeURIComponent(msg)}`;
                 chargerCommandes();
+            } else {
+                alert("Erreur lors de la mise à jour : " + error.message);
             }
         }
 
         async function supprimerCommande(id) {
-            if (confirm("Supprimer ?")) {
-                await _supabase.from('commande').delete().eq('id', id);
-                chargerCommandes();
+            if (confirm("Supprimer définitivement cette commande ?")) {
+                const { error } = await _supabase.from('commande').delete().eq('id', id);
+                if (!error) chargerCommandes();
             }
         }
     </script>
