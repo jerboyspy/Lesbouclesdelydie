@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+    <style>body { display: none; }</style>
 </head>
 <body class="bg-gray-50 p-4 pb-24 text-gray-800 font-sans">
 
@@ -43,10 +44,21 @@
     </div>
 
     <script>
-        // Ta configuration Supabase reste la même
         const _supabase = supabase.createClient("https://rsebvgdneetbbmdchwil.supabase.co", "sb_publishable_c_U9tbQzawyqAVuLTEYWWA_XBW6Fbs6");
 
-        netlifyIdentity.on('init', user => { if (!user) window.location.href = "/"; chargerListe(); });
+        // VERIFICATION DE SECURITE STRICTE
+        netlifyIdentity.on('init', user => {
+            // Si pas d'utilisateur OU si l'email n'est pas le tien
+            if (!user || user.email !== "lydie90@wanadoo.fr") {
+                window.location.href = "/"; // Rediriger immédiatement vers l'accueil
+            } else {
+                document.body.style.display = "block"; // Afficher la page si c'est toi
+                chargerListe();
+            }
+        });
+
+        // En cas de changement de statut de connexion (déconnexion par exemple)
+        netlifyIdentity.on('logout', () => window.location.href = "/");
 
         async function compressImage(file) {
             return new Promise((resolve) => {
