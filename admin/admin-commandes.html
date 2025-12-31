@@ -32,7 +32,7 @@
         </div>
         
         <div class="bg-white p-4 rounded-2xl shadow-sm mb-6 border border-pink-100">
-            <h3 class="text-[10px] font-black uppercase text-pink-400 mb-3 text-center">Configuration Livraison</h3>
+            <h3 class="text-[10px] font-black uppercase text-pink-400 mb-3 text-center">Configuration Livraison (Défaut)</h3>
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <label class="text-[9px] font-bold text-gray-400 uppercase">Prix Port (€)</label>
@@ -64,17 +64,15 @@
             if (error) return;
             allData = data;
 
-            // --- CALCUL DES GAINS NETS PAR MOIS ---
             const statsContainer = document.getElementById('stats-mois');
             const gainsParMois = {};
-            const pPort = parseFloat(document.getElementById('global-port').value) || 0;
-            const pSeuil = parseFloat(document.getElementById('global-seuil').value) || 0;
             
             data.filter(c => c.statut === 'Clôturée').forEach(c => {
                 const mois = new Date(c.created_at).toLocaleString('fr-FR', { month: 'long', year: 'numeric' });
                 const totalClient = parseFloat(c.total) || 0;
+                const portEffectif = parseFloat(c.frais_port) || 0; // Utilise le port spécifique enregistré
                 
-                const gainNet = totalClient >= pSeuil ? totalClient : (totalClient - pPort);
+                const gainNet = totalClient - portEffectif;
                 gainsParMois[mois] = (gainsParMois[mois] || 0) + gainNet;
             });
 
@@ -88,6 +86,9 @@
             const container = document.getElementById('liste-admin');
             container.innerHTML = data.map(c => {
                 const sColors = { 'En attente': 'bg-orange-100 text-orange-700', 'Validée': 'bg-green-100 text-green-700', 'Payée': 'bg-blue-100 text-blue-700', 'Expédiée': 'bg-purple-100 text-purple-700', 'Clôturée': 'bg-gray-200 text-gray-500' };
+                
+                // Calcul du port par défaut si non défini
+                const portParDefaut = c.frais_port !== undefined && c.frais_port !== null ? c.frais_port : (parseFloat(c.total) >= parseFloat(document.getElementById('global-seuil').value) ? 0 : parseFloat(document.getElementById('global-port').value));
 
                 return `
                 <div class="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 mb-4 ${c.statut === 'Clôturée' ? 'opacity-60' : ''}">
@@ -102,7 +103,11 @@
                     <div class="bg-gray-50 p-3 rounded-xl text-[10px] text-gray-500 mb-4 whitespace-pre-wrap italic border border-gray-100/50">${c.contenu}</div>
 
                     ${c.statut !== 'Clôturée' ? `
-                    <div class="bg-pink-50/50 p-3 rounded-2xl border border-pink-100 mb-4">
+                    <div class="bg-pink-50/50 p-3 rounded-2xl border border-pink-100 mb-4 space-y-3">
+                        <div class="flex justify-between items-center">
+                            <label class="text-[10px] font-bold text-pink-400 uppercase">Frais de Port (€)</label>
+                            <input type="number" id="port-${c.id}" value="${portParDefaut}" step="0.10" class="w-20 p-1 text-right rounded-lg border-none bg-white text-sm font-bold shadow-sm outline-none ring-1 ring-pink-200">
+                        </div>
                         <div class="flex justify-between items-center">
                             <label class="text-[10px] font-bold text-pink-400 uppercase">Total Client (€)</label>
                             <input type="number" id="prix-final-${c.id}" value="${c.total}" step="0.01" class="w-24 p-1 text-right rounded-lg border-none bg-white text-sm font-bold shadow-sm outline-none ring-1 ring-pink-200">
@@ -130,10 +135,15 @@
         }
 
         async function validerAction(id, bloc) {
-            const prixSaisi = document.getElementById(`prix-final-${id}`).value;
-            const prixFinal = parseFloat(prixSaisi);
+            const prixFinal = parseFloat(document.getElementById(`prix-final-${id}`).value);
+            const fraisPort = parseFloat(document.getElementById(`port-${id}`).value);
             
-            const { error } = await _supabase.from('commande').update({ total: prixFinal, statut: 'Validée' }).eq('id', id);
+            const { error } = await _supabase.from('commande').update({ 
+                total: prixFinal, 
+                frais_port: fraisPort, 
+                statut: 'Validée' 
+            }).eq('id', id);
+
             if (!error) {
                 const msg = `Coucou 🌸 C'est Lydie. Stock validé ! ✅\nTotal à régler : ${prixFinal.toFixed(2)}€.\nTu peux faire ton Wero sur mon numéro. Merci ! ✨`;
                 ouvrirWhatsApp(bloc, msg);
@@ -142,39 +152,30 @@
         }
 
         function ouvrirWhatsApp(bloc, message) {
-            // Extraction du numéro (recherche "Tel:" suivi de chiffres)
             const match = bloc.match(/Tel:\s*([\d\s]+)/);
             if (match && match[1]) {
-                let tel = match[1].replace(/\s/g, ''); // Enlève les espaces
-                
-                // --- SÉCURITÉ FORMATAGE 33 ---
-                if(tel.startsWith('0')) {
-                    tel = '33' + tel.substring(1);
-                } else if (!tel.startsWith('33')) {
-                    tel = '33' + tel;
-                }
-                
+                let tel = match[1].replace(/\s/g, '');
+                if(tel.startsWith('0')) tel = '33' + tel.substring(1);
+                else if (!tel.startsWith('33')) tel = '33' + tel;
                 window.open(`https://wa.me/${tel}?text=${encodeURIComponent(message)}`, '_blank');
             } else {
-                alert("Numéro non trouvé dans les détails de la commande.");
+                alert("Numéro non trouvé.");
             }
         }
 
         function telechargerBilan() {
             const cloturees = allData.filter(c => c.statut === 'Clôturée');
-            const portRef = parseFloat(document.getElementById('global-port').value);
-            const seuilRef = parseFloat(document.getElementById('global-seuil').value);
             let totalNetGlobal = 0;
 
             let txt = "BILAN GAINS BIJOUX - LES BOUCLES DE LYDIE\n========================================\n\n";
             cloturees.forEach(c => {
                 const t = parseFloat(c.total);
-                const frais = t >= seuilRef ? 0 : portRef;
-                const net = t - frais;
+                const port = parseFloat(c.frais_port) || 0;
+                const net = t - port;
                 totalNetGlobal += net;
 
                 txt += `${new Date(c.created_at).toLocaleDateString()} | ${c.client_email}\n`;
-                txt += `Gain Net: ${net.toFixed(2)}€ (Payé par client: ${t.toFixed(2)}€)\n`;
+                txt += `Gain Net: ${net.toFixed(2)}€ (Port: ${port.toFixed(2)}€ | Total Payé: ${t.toFixed(2)}€)\n`;
                 txt += `----------------------------------------\n`;
             });
             txt += `\nTOTAL NET RÉCOLTÉ (HORS PORT) : ${totalNetGlobal.toFixed(2)}€`;
