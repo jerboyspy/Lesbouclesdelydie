@@ -106,11 +106,13 @@
                 // On vide le panier
                 localStorage.removeItem('panier');
 
-                // 3. Redirection et ouverture WhatsApp
+                // 3. Ouverture WhatsApp et Redirection vers Merci
                 window.open(urlWhatsAppLydie, '_blank');
                 
-                alert("Ta commande a bien été enregistrée ! Lydie va te contacter sur WhatsApp. ✨");
-                window.location.href = `/`; 
+                // On attend 1 seconde pour être sûr que WhatsApp a bien tenté de s'ouvrir avant de changer de page
+                setTimeout(() => {
+                    window.location.href = "/merci.html";
+                }, 1000);
                 
             } catch (err) {
                 alert("Erreur : " + err.message);
