@@ -46,10 +46,10 @@
             }
 
             container.innerHTML = data.map(c => {
-                // Définition des styles selon le statut
                 const isValidated = c.statut === 'Validée';
                 const isPaid = c.statut === 'Payée';
                 const isShipped = c.statut === 'Expédiée';
+                const isClosed = c.statut === 'Clôturée';
 
                 let statusColor = "bg-orange-100 text-orange-600";
                 let borderColor = "border-gray-100";
@@ -67,13 +67,17 @@
                     statusColor = "bg-purple-100 text-purple-600";
                     borderColor = "border-purple-200";
                     badgeText = "📦 Colis envoyé !";
+                } else if (isClosed) {
+                    statusColor = "bg-gray-100 text-gray-400";
+                    borderColor = "border-gray-200";
+                    badgeText = "✅ Commande terminée";
                 }
 
-                // Préparation du message WhatsApp automatique
                 const messageWero = encodeURIComponent(`Bonjour Lydie, je viens de régler ma commande n°${c.id} d'un montant de ${parseFloat(c.total).toFixed(2)}€ via Wero. Merci !`);
+                const messageRecu = encodeURIComponent(`Coucou Lydie ! 🌸 Je viens de recevoir ma commande n°${c.id}. Les bijoux sont magnifiques, merci beaucoup ! 😍`);
                 
                 return `
-                <div class="bg-white p-6 rounded-[30px] border-2 ${borderColor} relative transition-all">
+                <div class="bg-white p-6 rounded-[30px] border-2 ${borderColor} relative transition-all ${isClosed ? 'opacity-60' : ''}">
                     ${badgeText ? `<span class="absolute -top-3 left-6 ${statusColor.replace('100', '500').replace('text-', 'bg-')} text-white text-[9px] px-3 py-1 rounded-full font-black uppercase shadow-sm">${badgeText}</span>` : ''}
                     
                     <div class="flex justify-between items-start mb-4">
@@ -91,9 +95,9 @@
                         <span>${parseFloat(c.total).toFixed(2)}€</span>
                     </div>
 
-                    <div class="mt-4 pt-4 border-t border-gray-50 flex gap-2">
+                    <div class="mt-4 pt-4 border-t border-gray-50 flex flex-wrap gap-2">
                         <a href="/suivi.html?id=${c.id}" class="flex-1 text-center bg-gray-100 hover:bg-gray-200 py-3 rounded-xl text-[10px] text-gray-500 uppercase font-black transition">
-                            🔍 Suivi en direct
+                            🔍 Suivi
                         </a>
                         
                         ${isValidated ? `
@@ -102,13 +106,29 @@
                         </a>` : ''}
 
                         ${isShipped ? `
-                        <div class="flex-1 text-center bg-purple-500 text-white py-3 rounded-xl text-[10px] uppercase font-black shadow-sm">
-                            🚚 En route
-                        </div>` : ''}
+                        <button onclick="cloturerCommande('${c.id}', '${messageRecu}')" class="w-full bg-pink-500 text-white py-3 rounded-xl text-[10px] uppercase font-black shadow-lg active:scale-95 transition">
+                            🎁 Colis bien reçu !
+                        </button>` : ''}
                     </div>
                 </div>
                 `;
             }).join('');
+        }
+
+        async function cloturerCommande(id, message) {
+            if(confirm("Confirmer la réception de votre colis ? Cela clôturera la commande et informera Lydie.")){
+                const { error } = await _supabase
+                    .from('commande')
+                    .update({ statut: 'Clôturée' })
+                    .eq('id', id);
+                
+                if(!error) {
+                    // Ouvre WhatsApp pour prévenir Lydie
+                    window.location.href = `https://wa.me/33673460409?text=${message}`;
+                } else {
+                    alert("Erreur lors de la mise à jour.");
+                }
+            }
         }
     </script>
 </body>
