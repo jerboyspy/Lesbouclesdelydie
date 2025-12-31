@@ -7,6 +7,19 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+    <style>
+        /* Styles pour la fiche produit et le zoom */
+        .modal-open { overflow: hidden; }
+        #product-modal { transition: opacity 0.3s ease; }
+        .zoom-container { overflow: hidden; border-radius: 1.5rem; background: #f9fafb; }
+        .zoom-container img { transition: transform 0.3s ease; cursor: zoom-in; }
+        /* Zoom sur ordinateur au survol */
+        @media (hover: hover) {
+            .zoom-container img:hover { transform: scale(1.5); }
+        }
+        /* Zoom sur mobile au maintien du doigt */
+        .zoom-container img:active { transform: scale(1.8); }
+    </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
 
@@ -37,6 +50,30 @@
         </div>
     </main>
 
+    <div id="product-modal" class="fixed inset-0 z-[100] hidden bg-black/70 backdrop-blur-sm flex items-end md:items-center justify-center p-0 md:p-4">
+        <div class="bg-white w-full max-w-lg rounded-t-[40px] md:rounded-[40px] overflow-hidden shadow-2xl relative animate-slide-up">
+            <button onclick="closeModal()" class="absolute top-6 right-6 z-10 bg-white/90 backdrop-blur-md p-2 rounded-full shadow-lg text-gray-800">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+            
+            <div class="p-3">
+                <div class="zoom-container aspect-square">
+                    <img id="modal-img" src="" alt="" class="w-full h-full object-cover">
+                </div>
+            </div>
+            
+            <div class="p-8">
+                <h2 id="modal-title" class="text-2xl font-black text-gray-800 mb-1"></h2>
+                <p id="modal-price" class="text-xl font-bold text-pink-500 mb-4"></p>
+                <p id="modal-desc" class="text-gray-500 text-sm leading-relaxed mb-8 italic"></p>
+                
+                <button id="modal-add-btn" class="w-full bg-pink-500 text-white py-4 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-pink-200 active:scale-95 transition-all">
+                    Ajouter au panier
+                </button>
+            </div>
+        </div>
+    </div>
+
     <a href="https://wa.me/33673460409" target="_blank" class="fixed bottom-5 left-5 bg-[#25d366] text-white px-5 py-3 rounded-full z-[100] font-bold shadow-lg flex items-center gap-2">
         💬 WhatsApp
     </a>
@@ -45,47 +82,36 @@
         const _supabase = supabase.createClient("https://rsebvgdneetbbmdchwil.supabase.co", "sb_publishable_c_U9tbQzawyqAVuLTEYWWA_XBW6Fbs6");
         
         let panier = JSON.parse(localStorage.getItem('panier')) || [];
+        let allProducts = []; // Stockage local des produits pour la modale
 
-        // Lancer la boutique au démarrage
         document.addEventListener('DOMContentLoaded', () => {
             chargerBoutique();
             updateCartCount();
         });
 
-        // Gestion Netlify Identity
         netlifyIdentity.on('init', user => { if (user) handleAuth(user); });
         netlifyIdentity.on('login', user => { handleAuth(user); netlifyIdentity.close(); });
         netlifyIdentity.on('logout', () => { location.reload(); });
 
         function handleAuth(user) {
             if (!user) return;
-
-            // Admin Lydie
             if (user.email.toLowerCase() === "lydie90@wanadoo.fr") {
                 document.getElementById('admin-bar').classList.remove('hidden');
             }
-            
-            // Client
             document.getElementById('btn-mes-commandes').classList.remove('hidden');
             document.getElementById('auth-btn').innerText = "👤 Déconnexion";
-            
-            // Vérification des notifications (Table: commande)
             verifierNotifications(user.email);
         }
 
         async function verifierNotifications(email) {
             try {
-                // Utilisation du nom exact : 'commande' (sans s)
                 const { data } = await _supabase
                     .from('commande')
                     .select('id')
                     .eq('statut', 'Validée')
                     .or(`client_email.eq."${email}",contenu.ilike."%${email}%"`)
                     .limit(1);
-                
-                if (data && data.length > 0) {
-                    document.getElementById('dot-notif').classList.remove('hidden');
-                }
+                if (data && data.length > 0) document.getElementById('dot-notif').classList.remove('hidden');
             } catch (e) { console.error("Erreur notif:", e); }
         }
 
@@ -94,6 +120,8 @@
             try {
                 const { data, error } = await _supabase.from('produits').select('*').order('id', { ascending: false });
                 if (error) throw error;
+                
+                allProducts = data; // On garde les produits en mémoire
 
                 if (!data || data.length === 0) {
                     container.innerHTML = "<p class='col-span-full text-center py-20 italic text-gray-400'>La collection arrive bientôt...</p>";
@@ -102,8 +130,8 @@
 
                 container.innerHTML = data.map(p => `
                     <div class="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col h-full hover:shadow-md transition">
-                        <img src="${p.image}" class="w-full h-44 object-cover rounded-xl mb-2" onerror="this.src='https://via.placeholder.com/200'">
-                        <h4 class="font-bold text-[12px] mb-1">${p.titre}</h4>
+                        <img src="${p.image}" onclick="openProduct(${p.id})" class="w-full h-44 object-cover rounded-xl mb-2 cursor-pointer" onerror="this.src='https://via.placeholder.com/200'">
+                        <h4 onclick="openProduct(${p.id})" class="font-bold text-[12px] mb-1 cursor-pointer hover:text-pink-600">${p.titre}</h4>
                         <p class="text-pink-600 font-black text-lg mb-3">${parseFloat(p.prix).toFixed(2)} €</p>
                         <button onclick="ajouterAuPanier('${p.titre.replace(/'/g, "\\'")}', ${p.prix}, '${p.image}')" class="bg-pink-500 text-white py-2.5 rounded-xl text-[11px] font-bold uppercase active:scale-95 transition-all">
                             Ajouter
@@ -115,19 +143,54 @@
             }
         }
 
+        // --- FONCTIONS MODALE ---
+        function openProduct(id) {
+            const p = allProducts.find(item => item.id == id);
+            if (!p) return;
+
+            document.getElementById('modal-img').src = p.image;
+            document.getElementById('modal-title').innerText = p.titre;
+            document.getElementById('modal-price').innerText = `${parseFloat(p.prix).toFixed(2)} €`;
+            // Utilise la colonne 'description' de Supabase ou un texte par défaut
+            document.getElementById('modal-desc').innerText = p.description || "Bijou artisanal créé avec passion. Pièce unique pour sublimer votre style. ✨";
+            
+            const addBtn = document.getElementById('modal-add-btn');
+            addBtn.onclick = () => {
+                ajouterAuPanier(p.titre.replace(/'/g, "\\'"), p.prix, p.image);
+                closeModal();
+            };
+
+            document.getElementById('product-modal').classList.remove('hidden');
+            document.body.classList.add('modal-open');
+        }
+
+        function closeModal() {
+            document.getElementById('product-modal').classList.add('hidden');
+            document.body.classList.remove('modal-open');
+        }
+
+        // Fermer la modale en cliquant à côté
+        window.onclick = function(event) {
+            const modal = document.getElementById('product-modal');
+            if (event.target == modal) closeModal();
+        }
+
         function ajouterAuPanier(titre, prix, image) { 
             panier.push({ titre, prix, image }); 
             localStorage.setItem('panier', JSON.stringify(panier));
             updateCartCount();
             
-            const btn = event.target;
-            const originalText = btn.innerText;
-            btn.innerText = "✅ AJOUTÉ";
-            btn.classList.replace('bg-pink-500', 'bg-green-500');
-            setTimeout(() => {
-                btn.innerText = originalText;
-                btn.classList.replace('bg-green-500', 'bg-pink-500');
-            }, 1000);
+            // Si le bouton existe sur la page (pour les cartes)
+            if (event && event.target && event.target.tagName === 'BUTTON') {
+                const btn = event.target;
+                const originalText = btn.innerText;
+                btn.innerText = "✅ AJOUTÉ";
+                btn.classList.replace('bg-pink-500', 'bg-green-500');
+                setTimeout(() => {
+                    btn.innerText = originalText;
+                    btn.classList.replace('bg-green-500', 'bg-pink-500');
+                }, 1000);
+            }
         }
 
         function updateCartCount() {
