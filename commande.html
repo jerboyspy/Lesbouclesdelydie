@@ -18,6 +18,7 @@
             <div class="bg-white p-6 rounded-3xl shadow-sm border border-pink-100 space-y-4">
                 <h2 class="font-bold text-gray-400 uppercase text-[10px]">Tes coordonnées</h2>
                 <input type="text" id="nom" placeholder="Ton Nom et Prénom" class="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-pink-300" required>
+                <input type="tel" id="tel" placeholder="Ton numéro de téléphone (ex: 0612345678)" class="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-pink-300" required>
                 <input type="email" id="email" placeholder="Email" class="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-pink-300" required>
                 <textarea id="adresse" placeholder="Adresse complète de livraison" class="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-pink-300" rows="3" required></textarea>
             </div>
@@ -29,7 +30,7 @@
                 </div>
                 <div class="bg-blue-50 p-4 rounded-2xl mb-6 border border-blue-100">
                     <p class="text-[11px] text-blue-600 italic text-center">
-                        Lydie va vérifier votre commande et vous enverra le montant final (avec ajustement possible des frais de port) pour le paiement Wero.
+                        Lydie va vérifier votre commande et vous enverra un message WhatsApp pour le paiement Wero.
                     </p>
                 </div>
                 <button type="submit" id="btn-submit" class="w-full bg-pink-500 text-white py-5 rounded-2xl font-black uppercase shadow-lg active:scale-95 transition">
@@ -52,19 +53,23 @@
             e.preventDefault();
             const btn = document.getElementById('btn-submit');
             const nom = document.getElementById('nom').value;
+            const tel = document.getElementById('tel').value.replace(/\s/g, ''); 
             const contenu = panier.map(p => `- ${p.titre} (${p.prix}€)`).join('\n');
 
             btn.disabled = true;
             try {
-                const { error } = await _supabase.from('commande').insert([{
+                const { data, error } = await _supabase.from('commande').insert([{
                     client_email: nom, 
-                    contenu: `Email: ${document.getElementById('email').value}\nAdresse: ${document.getElementById('adresse').value}\n\nProduits:\n${contenu}`,
+                    contenu: `Tel: ${tel}\nEmail: ${document.getElementById('email').value}\nAdresse: ${document.getElementById('adresse').value}\n\nProduits:\n${contenu}`,
                     total: parseFloat(totalInit),
                     statut: 'En attente'
-                }]);
+                }]).select();
+
                 if(error) throw error;
-                window.location.href = `https://wa.me/33673460409?text=${encodeURIComponent("Bonjour Lydie, j'ai envoyé une demande de validation pour ma commande (Nom: "+nom+"). Merci !")}`;
+
                 localStorage.removeItem('panier');
+                // Redirection vers la page de suivi
+                window.location.href = `/suivi.html?id=${data[0].id}`;
             } catch (err) {
                 alert(err.message);
                 btn.disabled = false;
