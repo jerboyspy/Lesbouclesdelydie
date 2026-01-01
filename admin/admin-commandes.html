@@ -79,9 +79,25 @@
 
         async function chargerVisiteurs() {
             try {
-                const { data } = await _supabase.from('statistiques').select('valeur').eq('nom', 'visiteurs').single();
-                if (data) document.getElementById('total-visiteurs').innerText = data.valeur;
-            } catch (e) { document.getElementById('total-visiteurs').innerText = "0"; }
+                // Utilisation de maybeSingle pour éviter les erreurs si la ligne est absente
+                const { data, error } = await _supabase
+                    .from('statistiques')
+                    .select('valeur')
+                    .eq('nom', 'visiteurs')
+                    .maybeSingle();
+
+                if (error) throw error;
+
+                const afficheur = document.getElementById('total-visiteurs');
+                if (data) {
+                    afficheur.innerText = data.valeur;
+                } else {
+                    afficheur.innerText = "0";
+                }
+            } catch (e) { 
+                console.error("Erreur visiteurs:", e);
+                document.getElementById('total-visiteurs').innerText = "0"; 
+            }
         }
 
         async function chargerCommandes() {
@@ -217,7 +233,6 @@
         }
 
         function ouvrirWhatsApp(bloc, message) {
-            // Détection du numéro améliorée (TEL, Tel, Tél)
             const regexTel = /(?:TEL|Tel|Tél):\s*([\d\s\+\.]+)/i;
             const match = bloc.match(regexTel);
             if (match && match[1]) {
@@ -227,7 +242,6 @@
                 
                 const url = `https://wa.me/${tel}?text=${encodeURIComponent(message)}`;
                 
-                // Méthode sécurisée pour iPhone/Safari
                 const a = document.createElement('a');
                 a.href = url;
                 a.target = '_blank';
