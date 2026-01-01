@@ -15,9 +15,7 @@
         <a href="/" class="flex items-center gap-2 bg-white px-4 py-2 rounded-2xl shadow-sm border border-gray-100 text-sm font-bold text-gray-600 hover:bg-pink-50 transition">
             🏠 <span class="hidden sm:inline">Boutique</span>
         </a>
-        
         <h2 class="text-xl font-black text-pink-600 italic">Admin Lydie</h2>
-
         <a href="/admin/admin-commandes.html" class="flex items-center gap-2 bg-white px-4 py-2 rounded-2xl shadow-sm border border-gray-100 text-sm font-bold text-gray-600 hover:bg-pink-50 transition">
             📋 <span class="hidden sm:inline">Commandes</span>
         </a>
@@ -35,6 +33,9 @@
                     <input type="number" step="0.01" id="prix" class="w-full p-4 bg-gray-100 rounded-2xl border-none focus:ring-2 focus:ring-pink-300" placeholder="Prix (€)" required>
                     <input type="number" id="stock" class="w-full p-4 bg-gray-100 rounded-2xl border-none focus:ring-2 focus:ring-pink-300" placeholder="Stock" required>
                 </div>
+
+                <input type="text" id="badge" class="w-full p-4 bg-gray-100 rounded-2xl border-none focus:ring-2 focus:ring-pink-300 text-sm" placeholder="Badge (ex: NEW, TOP, PROMO) - Optionnel">
+
                 <div class="bg-pink-50 p-5 rounded-2xl border-2 border-dashed border-pink-200">
                     <p class="text-[10px] text-pink-400 font-bold mb-2 uppercase text-center">Photo du bijou</p>
                     <input type="file" id="fileInput" accept="image/*" class="text-xs w-full">
@@ -50,7 +51,7 @@
         </div>
 
         <div class="flex justify-between items-center mb-3 px-2">
-            <h3 class="font-bold">Gestion du stock</h3>
+            <h3 class="font-bold text-gray-700">Gestion du stock</h3>
             <span id="product-count" class="text-[10px] bg-pink-100 text-pink-500 px-2 py-1 rounded-full font-bold">0 produits</span>
         </div>
         
@@ -61,6 +62,7 @@
 
     <script>
         const _supabase = supabase.createClient("https://rsebvgdneetbbmdchwil.supabase.co", "sb_publishable_c_U9tbQzawyqAVuLTEYWWA_XBW6Fbs6");
+        let allProducts = [];
 
         netlifyIdentity.on('init', user => {
             if (!user || user.email !== "lydie90@wanadoo.fr") {
@@ -116,12 +118,12 @@
                 const result = await res.json();
                 if(!res.ok) throw new Error(result.error || "Erreur serveur");
 
-                // AJOUT : On inclut la colonne 'description' dans l'insert
                 const { error } = await _supabase.from('produits').insert([{
                     titre: document.getElementById('titre').value,
-                    description: document.getElementById('description').value, // Envoi de la description
+                    description: document.getElementById('description').value,
                     prix: parseFloat(document.getElementById('prix').value),
                     stock: parseInt(document.getElementById('stock').value),
+                    badge: document.getElementById('badge').value.toUpperCase(),
                     image: result.url
                 }]);
 
@@ -129,9 +131,7 @@
 
                 document.getElementById('produit-form').reset();
                 document.getElementById('finish-area').classList.remove('hidden');
-                
                 await chargerListe();
-                
                 btn.disabled = false;
                 btn.innerText = "➕ Ajouter un autre bijou";
                 
@@ -148,19 +148,54 @@
             const countEl = document.getElementById('product-count');
             
             if (data) {
+                allProducts = data;
                 countEl.innerText = `${data.length} produits`;
                 container.innerHTML = data.map(p => `
-                    <div class="flex items-center justify-between p-3 bg-white rounded-2xl shadow-sm border border-gray-100">
-                        <div class="flex items-center gap-3">
-                            <img src="${p.image}" class="w-12 h-12 rounded-xl object-cover">
-                            <div>
-                                <p class="text-xs font-bold leading-tight">${p.titre}</p>
-                                <p class="text-[10px] text-gray-400">${p.prix}€ - Stock: ${p.stock}</p>
+                    <div class="p-4 bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col gap-3">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <img src="${p.image}" class="w-14 h-14 rounded-xl object-cover">
+                                <div>
+                                    <p class="text-sm font-bold leading-tight">${p.titre}</p>
+                                    <p class="text-[11px] font-black ${p.stock <= 0 ? 'text-red-500' : 'text-gray-400'}">
+                                        Stock: ${p.stock} ${p.stock <= 0 ? '(RUPTURE)' : ''}
+                                    </p>
+                                    ${p.badge ? `<span class="text-[9px] bg-yellow-100 text-yellow-600 px-2 py-0.5 rounded font-bold uppercase">${p.badge}</span>` : ''}
+                                </div>
+                            </div>
+                            <div class="flex flex-col gap-2">
+                                <button onclick="ouvrirModif(${p.id})" class="bg-blue-50 text-blue-600 p-2 rounded-lg text-sm font-bold hover:bg-blue-100 transition">✏️ Modifier</button>
+                                <button onclick="supprimer(${p.id})" class="bg-red-50 text-red-400 p-2 rounded-lg text-sm font-bold hover:bg-red-100 transition">🗑️</button>
                             </div>
                         </div>
-                        <button onclick="supprimer(${p.id})" class="text-red-300 hover:text-red-500 p-2 text-lg">🗑️</button>
                     </div>
                 `).join('');
+            }
+        }
+
+        async function ouvrirModif(id) {
+            const p = allProducts.find(item => item.id === id);
+            if(!p) return;
+
+            const nStock = prompt("Nouveau stock pour " + p.titre + " :", p.stock);
+            if (nStock === null) return;
+
+            const nDesc = prompt("Nouvelle description :", p.description || "");
+            const nBadge = prompt("Badge (NEW, TOP, PROMO...) :", p.badge || "");
+
+            try {
+                const { error } = await _supabase.from('produits')
+                    .update({ 
+                        stock: parseInt(nStock), 
+                        description: nDesc,
+                        badge: nBadge.toUpperCase()
+                    })
+                    .eq('id', id);
+                
+                if (error) throw error;
+                await chargerListe();
+            } catch (e) {
+                alert("Erreur lors de la modification");
             }
         }
 
