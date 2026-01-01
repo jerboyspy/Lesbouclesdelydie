@@ -89,21 +89,31 @@
             if (error) return;
             allData = data;
 
-            // Stats mensuelles
             const statsContainer = document.getElementById('stats-mois');
             const gainsParMois = {};
-            const depensesParClient = {};
+            const depensesParClient = {}; // Objet pour regrouper par email
             
             data.forEach(c => {
+                const email = c.client_email.toLowerCase();
+                
+                // 1. Calcul des gains mensuels (Uniquement clôturées)
                 if (c.statut === 'Clôturée') {
                     const mois = new Date(c.created_at).toLocaleString('fr-FR', { month: 'long', year: 'numeric' });
                     const net = (parseFloat(c.total) || 0) - (parseFloat(c.frais_port) || 0);
                     gainsParMois[mois] = (gainsParMois[mois] || 0) + net;
                 }
                 
-                // Pour le classement (on prend toutes les commandes payées/validées/expédiées/clôturées)
+                // 2. Logique du Classement : Regroupement par email
                 if (['Validée', 'Payée', 'Expédiée', 'Clôturée'].includes(c.statut)) {
-                    depensesParClient[c.client_email] = (depensesParClient[c.client_email] || 0) + (parseFloat(c.total) || 0);
+                    if (!depensesParClient[email]) {
+                        depensesParClient[email] = { total: 0, nom: c.nom_client || c.client_email };
+                    }
+                    depensesParClient[email].total += (parseFloat(c.total) || 0);
+                    
+                    // On garde le nom le plus propre (si dispo)
+                    if (c.nom_client && c.nom_client !== email) {
+                        depensesParClient[email].nom = c.nom_client;
+                    }
                 }
             });
 
@@ -115,17 +125,20 @@
                 </div>
             `).join('') || '<p class="text-center text-xs text-gray-500 italic">Aucun gain clôturé.</p>';
 
-            // Rendu Classement
-            const classementTrie = Object.entries(depensesParClient).sort((a, b) => b[1] - a[1]).slice(0, 5);
-            document.getElementById('classement-acheteurs').innerHTML = classementTrie.map(([email, total], i) => `
+            // Rendu Classement corrigé
+            const classementTrie = Object.entries(depensesParClient)
+                .sort((a, b) => b[1].total - a[1].total)
+                .slice(0, 5);
+
+            document.getElementById('classement-acheteurs').innerHTML = classementTrie.map(([email, infos], i) => `
                 <div class="flex items-center justify-between bg-pink-50/50 p-2 rounded-xl border border-pink-100">
                     <div class="flex items-center gap-2 truncate">
                         <span class="bg-pink-500 text-white text-[8px] font-black w-4 h-4 flex items-center justify-center rounded-full">#${i+1}</span>
-                        <span class="text-[10px] font-bold truncate text-gray-600">${email}</span>
+                        <span class="text-[10px] font-bold truncate text-gray-600">${infos.nom}</span>
                     </div>
-                    <span class="text-[11px] font-black text-pink-600 ml-2">${total.toFixed(2)}€</span>
+                    <span class="text-[11px] font-black text-pink-600 ml-2">${infos.total.toFixed(2)}€</span>
                 </div>
-            `).join('') || '<p class="text-center text-[10px] text-gray-400 italic">Aucune commande.</p>';
+            `).join('') || '<p class="text-center text-[10px] text-gray-400 italic">Aucune commande validée.</p>';
 
             // Rendu Liste Commandes
             const container = document.getElementById('liste-admin');
@@ -141,7 +154,7 @@
                 <div class="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 mb-4 ${c.statut === 'Clôturée' ? 'opacity-60' : ''}">
                     <div class="flex justify-between items-start mb-4">
                         <div class="w-2/3">
-                            <p class="font-bold text-gray-800 text-sm truncate">${c.client_email}</p>
+                            <p class="font-bold text-gray-800 text-sm truncate">${c.nom_client || c.client_email}</p>
                             <p class="text-[9px] text-gray-400 uppercase font-medium">${new Date(c.created_at).toLocaleDateString('fr-FR')}</p>
                         </div>
                         <span class="text-[9px] font-black px-2 py-1 rounded-full uppercase ${sColors[c.statut]}">${c.statut}</span>
@@ -237,7 +250,7 @@
             cloturees.forEach(c => {
                 const net = parseFloat(c.total) - (parseFloat(c.frais_port) || 0);
                 totalNetGlobal += net;
-                txt += `${new Date(c.created_at).toLocaleDateString()} | ${c.client_email} | Gain: ${net.toFixed(2)}€\n`;
+                txt += `${new Date(c.created_at).toLocaleDateString()} | ${c.nom_client || c.client_email} | Gain: ${net.toFixed(2)}€\n`;
             });
             txt += `\nTOTAL NET RÉCOLTÉ : ${totalNetGlobal.toFixed(2)}€`;
             const link = document.createElement('a');
