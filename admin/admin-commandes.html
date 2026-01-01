@@ -135,14 +135,6 @@
             }).join('');
         }
 
-        async function cloturerCommande(id) {
-            if (confirm("Clôturer définitivement cette vente ? Elle sera ajoutée à ton bilan mensuel.")) {
-                const { error } = await _supabase.from('commande').update({ statut: 'Clôturée' }).eq('id', id);
-                if (!error) chargerCommandes();
-                else alert("Erreur lors de la clôture : " + error.message);
-            }
-        }
-
         async function validerAction(id, bloc) {
             const elPrix = document.getElementById(`prix-final-${id}`);
             const elPort = document.getElementById(`port-${id}`);
@@ -151,6 +143,27 @@
             const prixFinal = parseFloat(elPrix.value);
             const fraisPort = parseFloat(elPort.value);
             
+            // --- MISE À JOUR DES STOCKS AUTOMATIQUE ---
+            try {
+                // On extrait les noms des bijoux du bloc texte (format attendu: "- Nom du bijou (Prix€)")
+                const lignes = bloc.split('\n');
+                for (let ligne of lignes) {
+                    if (ligne.trim().startsWith('-')) {
+                        // On récupère le nom du bijou avant la parenthèse du prix
+                        let nomProduit = ligne.replace('-', '').split('(')[0].trim();
+                        
+                        // On cherche le produit dans Supabase pour avoir son stock actuel
+                        const { data: pData } = await _supabase.from('produits').select('id, stock').eq('titre', nomProduit).single();
+                        
+                        if (pData && pData.stock > 0) {
+                            // On déduit 1 du stock
+                            await _supabase.from('produits').update({ stock: pData.stock - 1 }).eq('id', pData.id);
+                        }
+                    }
+                }
+            } catch (err) { console.error("Erreur mise à jour stock:", err); }
+
+            // Mise à jour de la commande
             const { error } = await _supabase.from('commande').update({ 
                 total: prixFinal, 
                 frais_port: fraisPort, 
@@ -182,7 +195,14 @@
                 const url = `https://wa.me/${tel}?text=${encodeURIComponent(message)}`;
                 window.open(url, '_blank');
             } else {
-                alert("Numéro non trouvé dans les détails de la commande.");
+                alert("Numéro de téléphone non trouvé.");
+            }
+        }
+
+        async function cloturerCommande(id) {
+            if (confirm("Clôturer définitivement cette vente ?")) {
+                const { error } = await _supabase.from('commande').update({ statut: 'Clôturée' }).eq('id', id);
+                if (!error) chargerCommandes();
             }
         }
 
@@ -206,7 +226,7 @@
         }
 
         async function supprimerCommande(id) {
-            if (confirm("Supprimer cette commande définitivement ?")) {
+            if (confirm("Supprimer cette commande ?")) {
                 await _supabase.from('commande').delete().eq('id', id);
                 chargerCommandes();
             }
