@@ -25,6 +25,7 @@
                 <p class="text-[9px] text-gray-400 mt-1 ml-2 italic">Format WhatsApp auto ✨</p>
             </div>
             <textarea id="client-adresse" placeholder="Adresse complète (Rue, Ville, Code Postal)" class="w-full p-4 bg-gray-100 rounded-2xl border-none text-sm h-24 focus:ring-2 focus:ring-pink-300"></textarea>
+            <p class="text-[9px] text-gray-400 italic text-center">Tes infos seront enregistrées pour la prochaine fois !</p>
         </div>
 
         <div class="bg-white p-6 rounded-3xl shadow-xl border border-pink-100 space-y-3">
@@ -124,12 +125,10 @@
                 
                 if (!nom || !telSaisi || !adresse) return alert("Merci de remplir tes coordonnées 🌸");
 
-                // Conversion format 33 (WhatsApp)
                 if(telSaisi.startsWith('0')) tel = '33' + telSaisi.substring(1);
                 else if (!telSaisi.startsWith('33')) tel = '33' + telSaisi;
                 else tel = telSaisi;
                 
-                // Sauvegarde profil
                 await _supabase.from('profils').insert([{ email: user.email.toLowerCase(), nom_prenom: nom, telephone: tel, adresse: adresse }]);
             }
 
@@ -148,7 +147,6 @@
             }]);
 
             if (!error) {
-                // MESSAGE WHATSAPP POUR LYDIE
                 const messageWhatsApp = encodeURIComponent(
                     `Coucou Lydie ! 🌸\n` +
                     `Nouvelle commande de *${nom}*\n` +
@@ -160,7 +158,8 @@
                 localStorage.removeItem('panier');
                 window.open(`https://wa.me/33673460409?text=${messageWhatsApp}`, '_blank');
                 
-                setTimeout(() => { window.location.href = "/mes-commandes.html"; }, 1000);
+                // Redirection vers ta page Merci
+                setTimeout(() => { window.location.href = "/merci.html"; }, 1000);
             } else {
                 alert("Erreur réseau");
                 btn.disabled = false;
@@ -168,7 +167,9 @@
             }
         }
 
+        // Initialisation propre au chargement
         document.addEventListener("DOMContentLoaded", afficherPanier);
+        netlifyIdentity.on('init', user => { if(user) verifierProfil(); });
         netlifyIdentity.on('login', () => location.reload());
     </script>
 </body>
