@@ -59,9 +59,9 @@
         function afficherPanier() {
             const container = document.getElementById('liste-panier');
             
-            // --- PROTECTION CONTRE LES PRODUITS SUPPRIMÉS ---
-            // On ne garde que les produits qui ont encore un titre et un prix
-            panier = panier.filter(item => item && (item.titre || item.nom) && item.prix);
+            // --- SÉCURITÉ RENFORCÉE ---
+            // On filtre pour ne garder que les objets valides et on nettoie le localStorage
+            panier = panier.filter(item => item && (item.titre || item.nom) && item.prix != null);
             localStorage.setItem('panier', JSON.stringify(panier));
 
             if (panier.length === 0) {
@@ -73,15 +73,15 @@
             container.innerHTML = panier.map((item, index) => `
                 <div class="flex items-center justify-between bg-white p-3 rounded-2xl shadow-sm border border-gray-100">
                     <div class="flex items-center gap-3">
-                        <img src="${item.image}" 
-                             onerror="this.src='https://via.placeholder.com/150?text=Image+Indisponible'" 
-                             class="w-16 h-16 rounded-xl object-cover">
+                        <img src="${item.image || ''}" 
+                             onerror="this.src='https://via.placeholder.com/150?text=Bijou'" 
+                             class="w-16 h-16 rounded-xl object-cover bg-gray-50">
                         <div>
-                            <p class="font-bold text-sm">${item.titre || item.nom}</p>
+                            <p class="font-bold text-sm">${item.titre || item.nom || 'Produit sans nom'}</p>
                             <p class="text-pink-500 font-bold text-xs">${item.prix}€</p>
                         </div>
                     </div>
-                    <button onclick="retirer(${index})" class="text-gray-300 hover:text-red-500 p-2 transition-colors">🗑️</button>
+                    <button onclick="retirer(${index})" class="text-gray-300 hover:text-red-500 p-2 transition-colors text-xl">🗑️</button>
                 </div>`).join('');
             
             calculerTotal();
@@ -91,18 +91,22 @@
         async function verifierProfil() {
             const user = netlifyIdentity.currentUser();
             if (user && panier.length > 0) {
-                const { data } = await _supabase.from('profils').select('*').eq('email', user.email.toLowerCase()).single();
-                if (data) {
-                    profilExistant = data;
-                    document.getElementById('form-coordonnees').classList.add('hidden');
-                } else {
-                    document.getElementById('form-coordonnees').classList.remove('hidden');
+                try {
+                    const { data } = await _supabase.from('profils').select('*').eq('email', user.email.toLowerCase()).single();
+                    if (data) {
+                        profilExistant = data;
+                        document.getElementById('form-coordonnees').classList.add('hidden');
+                    } else {
+                        document.getElementById('form-coordonnees').classList.remove('hidden');
+                    }
+                } catch(e) { 
+                    document.getElementById('form-coordonnees').classList.remove('hidden'); 
                 }
             }
         }
 
         function calculerTotal() {
-            const st = panier.reduce((sum, item) => sum + parseFloat(item.prix), 0);
+            const st = panier.reduce((sum, item) => sum + parseFloat(item.prix || 0), 0);
             const port = (st >= 50 || st === 0) ? 0 : 4.50;
             totalGlobal = st + port;
             document.getElementById('sous-total').innerText = st.toFixed(2) + "€";
@@ -145,7 +149,7 @@
             }
 
             btn.disabled = true;
-            btn.innerText = "Envoi...";
+            btn.innerText = "Traitement...";
 
             const listeProduits = panier.map(p => `- ${p.titre || p.nom} (${p.prix}€)`).join('\n');
             const contenuTxt = `Tel: ${tel}\nEmail: ${user.email}\nAdresse: ${adresse}\n\nProduits:\n${listeProduits}`;
@@ -170,9 +174,10 @@
                 localStorage.removeItem('panier');
                 window.open(`https://wa.me/33673460409?text=${messageWhatsApp}`, '_blank');
                 
-                setTimeout(() => { window.location.href = "/merci.html"; }, 1000);
+                // Redirection immédiate vers la page merci
+                window.location.href = "/merci.html";
             } else {
-                alert("Erreur réseau");
+                alert("Erreur technique. Vérifie ta connexion.");
                 btn.disabled = false;
                 btn.innerText = "Réessayer";
             }
