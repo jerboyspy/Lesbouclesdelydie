@@ -53,6 +53,11 @@
                     <p class="text-[10px] text-pink-400 font-bold mb-2 uppercase text-center">Photo du bijou</p>
                     <input type="file" id="fileInput" accept="image/*" class="text-xs w-full">
                 </div>
+
+                <div id="upload-progress-container" class="hidden w-full bg-gray-200 rounded-full h-2 mb-2">
+                    <div id="upload-progress-bar" class="bg-pink-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+
                 <button type="submit" id="btn-submit" class="w-full bg-pink-500 text-white py-5 rounded-2xl font-black uppercase shadow-lg hover:bg-pink-600 transition">➕ Ajouter à la collection</button>
             </form>
         </div>
@@ -88,7 +93,6 @@
 
         netlifyIdentity.on('logout', () => window.location.href = "/");
 
-        // Gestion de l'affichage du champ personnalisé
         function handleBadgeChoice(val) {
             const customInput = document.getElementById('badge-custom');
             if (val === 'custom') {
@@ -125,19 +129,32 @@
             e.preventDefault();
             const btn = document.getElementById('btn-submit');
             const file = document.getElementById('fileInput').files[0];
+            const progressContainer = document.getElementById('upload-progress-container');
+            const progressBar = document.getElementById('upload-progress-bar');
+            
             if(!file) return alert("Photo manquante !");
 
-            // Calcul de la valeur finale du badge
             const selectVal = document.getElementById('badge-select').value;
             const customVal = document.getElementById('badge-custom').value;
             const finalBadge = (selectVal === 'custom') ? customVal : selectVal;
 
             btn.disabled = true;
-            btn.innerText = "⏳ ENREGISTREMENT...";
+            btn.innerText = "⏳ ENVOI EN COURS...";
+            progressContainer.classList.remove('hidden');
+            progressBar.style.width = "10%";
 
             try {
+                // Compression (30%)
                 const base64Content = await compressImage(file);
+                progressBar.style.width = "40%";
+                
                 const fileName = `img_${Date.now()}.jpg`;
+
+                // Animation simulée de progression
+                const progressInterval = setInterval(() => {
+                    let currentWidth = parseInt(progressBar.style.width);
+                    if (currentWidth < 80) progressBar.style.width = (currentWidth + 5) + "%";
+                }, 150);
 
                 const res = await fetch('/.netlify/functions/upload', {
                     method: 'POST',
@@ -145,8 +162,11 @@
                     body: JSON.stringify({ fileName, content: base64Content })
                 });
 
+                clearInterval(progressInterval);
                 const result = await res.json();
                 if(!res.ok) throw new Error(result.error || "Erreur serveur");
+
+                progressBar.style.width = "90%";
 
                 const { error } = await _supabase.from('produits').insert([{
                     titre: document.getElementById('titre').value,
@@ -159,9 +179,16 @@
 
                 if (error) throw error;
 
-                document.getElementById('produit-form').reset();
-                document.getElementById('badge-custom').classList.add('hidden');
-                document.getElementById('finish-area').classList.remove('hidden');
+                progressBar.style.width = "100%";
+                
+                setTimeout(() => {
+                    progressContainer.classList.add('hidden');
+                    progressBar.style.width = "0%";
+                    document.getElementById('produit-form').reset();
+                    document.getElementById('badge-custom').classList.add('hidden');
+                    document.getElementById('finish-area').classList.remove('hidden');
+                }, 500);
+
                 await chargerListe();
                 btn.disabled = false;
                 btn.innerText = "➕ Ajouter un autre bijou";
@@ -170,6 +197,7 @@
                 alert("Erreur : " + err.message);
                 btn.disabled = false;
                 btn.innerText = "🚀 Réessayer";
+                progressContainer.classList.add('hidden');
             }
         });
 
@@ -209,27 +237,15 @@
         async function ouvrirModif(id) {
             const p = allProducts.find(item => item.id === id);
             if(!p) return;
-
-            const nStock = prompt("Nouveau stock pour " + p.titre + " :", p.stock);
+            const nStock = prompt("Nouveau stock :", p.stock);
             if (nStock === null) return;
-
             const nDesc = prompt("Nouvelle description :", p.description || "");
-            const nBadge = prompt("Badge (Laissez vide pour aucun, ou tapez : NEW, TOP, PROMO, ÉPUISÉ...) :", p.badge || "");
-
+            const nBadge = prompt("Badge (NEW, TOP, PROMO...) :", p.badge || "");
             try {
-                const { error } = await _supabase.from('produits')
-                    .update({ 
-                        stock: parseInt(nStock), 
-                        description: nDesc,
-                        badge: nBadge.toUpperCase()
-                    })
-                    .eq('id', id);
-                
+                const { error } = await _supabase.from('produits').update({ stock: parseInt(nStock), description: nDesc, badge: nBadge.toUpperCase() }).eq('id', id);
                 if (error) throw error;
                 await chargerListe();
-            } catch (e) {
-                alert("Erreur lors de la modification");
-            }
+            } catch (e) { alert("Erreur modification"); }
         }
 
         async function supprimer(id) {
