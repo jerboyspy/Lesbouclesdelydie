@@ -74,7 +74,8 @@
         const _supabase = supabase.createClient("https://rsebvgdneetbbmdchwil.supabase.co", "sb_publishable_c_U9tbQzawyqAVuLTEYWWA_XBW6Fbs6");
         let panier = [];
         try {
-            panier = JSON.parse(localStorage.getItem('panier')) || [];
+            const stored = localStorage.getItem('panier');
+            panier = stored ? JSON.parse(stored) : [];
         } catch(e) { panier = []; }
         
         let allProducts = [];
@@ -144,7 +145,7 @@
                         <button onclick="ajouterAuPanier(${p.id}, event)" 
                             ${isOut ? 'disabled' : ''}
                             class="w-full py-2.5 rounded-xl text-[11px] font-bold uppercase transition-all active:scale-95 ${isOut ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-pink-500 text-white shadow-lg shadow-pink-100'}">
-                            ${isOut ? 'Épuisé' : 'Ajouter'}
+                            ${isOut ? 'Ajouter' : 'Ajouter'}
                         </button>
                     </div>`;
                 }).join('');
@@ -191,24 +192,28 @@
             const p = allProducts.find(item => item.id == id);
             if (!p || p.stock <= 0) return alert("Désolé, ce bijou n'est plus disponible.");
 
-            // Sécurisation stricte avant envoi au localStorage
+            // SÉCURISATION MAXIMALE POUR SAFARI IPHONE
             const article = {
-                titre: p.titre || "Bijou sans nom",
+                titre: String(p.titre || "Bijou").trim(),
                 prix: parseFloat(p.prix) || 0,
-                image: p.image || ""
+                // On s'assure que l'image est un texte simple et propre
+                image: p.image ? String(p.image).split('?')[0] : "" 
             };
 
             panier.push(article); 
             localStorage.setItem('panier', JSON.stringify(panier));
             updateCartCount();
 
-            // Effet visuel
-            const btn = event.target.closest('button');
+            // Effet visuel sur le bouton cliqué
+            const btn = event ? event.target.closest('button') : null;
             if (btn) {
                 const originalText = btn.innerText;
                 btn.innerText = "✅ AJOUTÉ"; 
                 btn.classList.add('!bg-green-500');
-                setTimeout(() => { btn.innerText = originalText; btn.classList.remove('!bg-green-500'); }, 800);
+                setTimeout(() => { 
+                    btn.innerText = originalText; 
+                    btn.classList.remove('!bg-green-500'); 
+                }, 800);
             }
         }
 
