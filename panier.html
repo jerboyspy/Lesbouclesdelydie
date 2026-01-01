@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mon Panier - Les Boucles de Lydie</title>
+    
+    <link rel="icon" type="image/png" href="favicon.png">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
@@ -45,10 +48,9 @@
             } catch (e) { panier = []; }
             afficherPanier();
 
-            // RÉCUPÉRATION DU PROFIL
             const user = netlifyIdentity.currentUser();
             if (user) {
-                const { data: profil, error } = await _supabase
+                const { data: profil } = await _supabase
                     .from('profils')
                     .select('nom_prenom, adresse, telephone')
                     .eq('email', user.email.toLowerCase())
@@ -62,6 +64,13 @@
             }
         }
 
+        // FONCTION POUR SUPPRIMER UN ARTICLE
+        function supprimerArticle(index) {
+            panier.splice(index, 1);
+            localStorage.setItem('panier', JSON.stringify(panier));
+            afficherPanier();
+        }
+
         function afficherPanier() {
             const container = document.getElementById('liste-panier');
             if (panier.length === 0) {
@@ -69,14 +78,24 @@
                 document.getElementById('total-final').innerText = "0.00€";
                 return;
             }
+
             container.innerHTML = panier.map((item, index) => `
                 <div class="flex items-center justify-between bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
                     <div class="flex items-center gap-4">
                         <div class="bg-pink-100 text-pink-500 w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs">${index + 1}</div>
-                        <div><p class="font-bold text-sm text-gray-800">${item.titre}</p><p class="text-pink-500 font-bold text-xs">${parseFloat(item.prix).toFixed(2)}€</p></div>
+                        <div>
+                            <p class="font-bold text-sm text-gray-800">${item.titre}</p>
+                            <p class="text-pink-500 font-bold text-xs">${parseFloat(item.prix).toFixed(2)}€</p>
+                        </div>
                     </div>
+                    <button onclick="supprimerArticle(${index})" class="text-gray-400 hover:text-red-500 p-2 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                    </button>
                 </div>
             `).join('');
+
             const st = panier.reduce((sum, item) => sum + parseFloat(item.prix || 0), 0);
             fraisPortAppliques = st >= 50 ? 0 : 4.50;
             totalGlobal = st + fraisPortAppliques;
@@ -89,10 +108,8 @@
 
             const nom = document.getElementById('client-nom').value.trim();
             const adresse = document.getElementById('client-adresse').value.trim();
-            
             let telRaw = document.getElementById('client-tel').value.replace(/\s+/g, '').replace(/\./g, '');
             if (telRaw.startsWith('0')) telRaw = '33' + telRaw.substring(1);
-            if (!telRaw.startsWith('33')) telRaw = '33' + telRaw;
             const tel = telRaw;
 
             if (!nom || tel.length < 10 || !adresse) return alert("⚠️ Merci de vérifier tes coordonnées.");
@@ -104,7 +121,6 @@
             const listeTxt = panier.map(p => `- ${p.titre} (${p.prix}€)`).join('\n');
 
             try {
-                // MISE À JOUR DU PROFIL
                 await _supabase.from('profils').upsert({
                     email: user.email.toLowerCase(),
                     nom_prenom: nom,
@@ -112,7 +128,6 @@
                     telephone: tel
                 }, { onConflict: 'email' });
 
-                // ENREGISTREMENT COMMANDE
                 const { error } = await _supabase.from('commande').insert([{
                     client_email: user.email.toLowerCase(),
                     nom_client: nom,
@@ -125,11 +140,9 @@
                 if (error) throw error;
 
                 const messageWA = encodeURIComponent(`Coucou Lydie ! 🌸\nJe souhaite commander :\n${listeTxt}\n\n*TOTAL : ${totalGlobal.toFixed(2)}€*\n\nMes coordonnées :\n${nom}\n${tel}\n${adresse}`);
-                
                 localStorage.removeItem('panier');
                 window.open(`https://wa.me/33673460409?text=${messageWA}`, '_blank');
                 window.location.href = "merci.html";
-
             } catch (err) {
                 alert("Erreur : " + err.message);
                 btn.disabled = false;
@@ -137,19 +150,9 @@
             }
         }
 
-        // --- GESTION DES ÉVÉNEMENTS D'IDENTITÉ ---
-        netlifyIdentity.on('init', user => {
-            if (user) chargerDonnees();
-        });
-        
-        netlifyIdentity.on('login', user => {
-            chargerDonnees(); // Recharge les données dès la connexion
-        });
-
-        document.addEventListener("DOMContentLoaded", () => {
-            // Un petit délai pour laisser Identity s'initialiser
-            setTimeout(chargerDonnees, 500);
-        });
+        netlifyIdentity.on('init', user => { if (user) chargerDonnees(); });
+        netlifyIdentity.on('login', () => chargerDonnees());
+        document.addEventListener("DOMContentLoaded", () => { setTimeout(chargerDonnees, 500); });
     </script>
 </body>
 </html>
