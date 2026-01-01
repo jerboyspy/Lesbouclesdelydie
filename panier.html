@@ -17,7 +17,7 @@
 
         <div id="liste-panier" class="space-y-3 mb-8"></div>
 
-        <div id="form-coordonnees" class="bg-white p-6 rounded-3xl shadow-xl border border-pink-100 mb-6 space-y-4">
+        <div class="bg-white p-6 rounded-3xl shadow-xl border border-pink-100 mb-6 space-y-4">
             <h3 class="text-center font-bold text-pink-500 uppercase text-xs tracking-widest">Tes Coordonnées</h3>
             <input type="text" id="client-nom" placeholder="Prénom et Nom" class="w-full p-4 bg-gray-100 rounded-2xl border-none text-sm focus:ring-2 focus:ring-pink-300">
             <input type="tel" id="client-tel" placeholder="Téléphone" class="w-full p-4 bg-gray-100 rounded-2xl border-none text-sm focus:ring-2 focus:ring-pink-300">
@@ -26,21 +26,17 @@
 
         <div class="bg-white p-6 rounded-3xl shadow-xl border border-pink-100 space-y-3">
             <div class="flex justify-between font-bold text-lg"><span>TOTAL</span><span id="total-final" class="text-pink-600">0.00€</span></div>
-            
             <button id="btn-valider" onclick="validerCommande()" class="w-full bg-pink-500 text-white py-5 rounded-2xl font-black uppercase shadow-lg mt-4 active:scale-95 transition-all">
                 Confirmer la commande
             </button>
         </div>
-
-        <button onclick="viderForce()" class="w-full mt-10 text-[10px] text-gray-400 underline uppercase opacity-50">
-            Vider le panier (Réinitialiser)
-        </button>
     </div>
 
     <script>
         const _supabase = supabase.createClient("https://rsebvgdneetbbmdchwil.supabase.co", "sb_publishable_c_U9tbQzawyqAVuLTEYWWA_XBW6Fbs6");
         let panier = [];
         let totalGlobal = 0;
+        let fraisPortAppliques = 4.50;
 
         function chargerDonnees() {
             try {
@@ -57,50 +53,29 @@
                 document.getElementById('total-final').innerText = "0.00€";
                 return;
             }
-
             container.innerHTML = panier.map((item, index) => `
                 <div class="flex items-center justify-between bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
                     <div class="flex items-center gap-4">
                         <div class="bg-pink-100 text-pink-500 w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs">${index + 1}</div>
-                        <div>
-                            <p class="font-bold text-sm text-gray-800">${item.titre}</p>
-                            <p class="text-pink-500 font-bold text-xs">${parseFloat(item.prix).toFixed(2)}€</p>
-                        </div>
+                        <div><p class="font-bold text-sm text-gray-800">${item.titre}</p><p class="text-pink-500 font-bold text-xs">${parseFloat(item.prix).toFixed(2)}€</p></div>
                     </div>
-                    <button onclick="retirer(${index})" class="text-gray-300 p-2 text-xl">🗑️</button>
                 </div>
             `).join('');
-            
             const st = panier.reduce((sum, item) => sum + parseFloat(item.prix || 0), 0);
-            totalGlobal = st + (st >= 50 ? 0 : 4.50);
+            fraisPortAppliques = st >= 50 ? 0 : 4.50;
+            totalGlobal = st + fraisPortAppliques;
             document.getElementById('total-final').innerText = totalGlobal.toFixed(2) + "€";
-        }
-
-        function retirer(index) {
-            panier.splice(index, 1);
-            localStorage.setItem('panier', JSON.stringify(panier));
-            afficherPanier();
-        }
-
-        function viderForce() {
-            localStorage.removeItem('panier');
-            window.location.reload();
         }
 
         async function validerCommande() {
             const user = netlifyIdentity.currentUser();
-            if (!user) {
-                alert("Merci de te connecter pour commander 👤");
-                return netlifyIdentity.open();
-            }
+            if (!user) return netlifyIdentity.open();
 
             const nom = document.getElementById('client-nom').value.trim();
             const tel = document.getElementById('client-tel').value.trim();
             const adresse = document.getElementById('client-adresse').value.trim();
 
-            if (!nom || !tel || !adresse) {
-                return alert("⚠️ Merci de remplir ton Nom, Téléphone et Adresse.");
-            }
+            if (!nom || !tel || !adresse) return alert("⚠️ Remplis tes coordonnées.");
 
             const btn = document.getElementById('btn-valider');
             btn.disabled = true;
@@ -109,30 +84,29 @@
             const listeTxt = panier.map(p => `- ${p.titre} (${p.prix}€)`).join('\n');
 
             try {
+                // Envoi utilisant uniquement les colonnes présentes dans ton Supabase
                 const { error } = await _supabase.from('commande').insert([{
                     client_email: user.email.toLowerCase(),
-                    nom_client: nom,
-                    contenu: `📞 Tel: ${tel}\n🏠 Adresse: ${adresse}\n\n📦 Produits:\n${listeTxt}`,
+                    contenu: `CLIENT: ${nom}\nTEL: ${tel}\nADRESSE: ${adresse}\n\nPRODUITS:\n${listeTxt}`,
                     total: totalGlobal,
-                    statut: 'En attente'
+                    statut: 'En attente',
+                    frais_port: fraisPortAppliques
                 }]);
 
                 if (error) throw error;
 
-                // Succès
-                const messageWA = encodeURIComponent(`Coucou Lydie ! 🌸\nNouvelle commande de *${nom}*\n\n*Produits :*\n${listeTxt}\n\n*TOTAL : ${totalGlobal.toFixed(2)}€*`);
+                const messageWA = encodeURIComponent(`Nouvelle commande de *${nom}*\n\n${listeTxt}\n\n*TOTAL : ${totalGlobal.toFixed(2)}€*`);
                 localStorage.removeItem('panier');
-                alert("Commande validée ! Ouverture de WhatsApp pour confirmer à Lydie...");
+                alert("Commande validée !");
                 window.open(`https://wa.me/33673460409?text=${messageWA}`, '_blank');
                 window.location.href = "/";
 
             } catch (err) {
-                alert("Erreur technique : " + err.message);
+                alert("Erreur : " + err.message);
                 btn.disabled = false;
                 btn.innerText = "Confirmer la commande";
             }
         }
-
         document.addEventListener("DOMContentLoaded", chargerDonnees);
     </script>
 </body>
