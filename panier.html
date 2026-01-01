@@ -38,12 +38,29 @@
         let totalGlobal = 0;
         let fraisPortAppliques = 4.50;
 
-        function chargerDonnees() {
+        async function chargerDonnees() {
+            // Charger le panier local
             try {
                 const data = localStorage.getItem('panier');
                 panier = data ? JSON.parse(data) : [];
             } catch (e) { panier = []; }
             afficherPanier();
+
+            // Tenter de pré-remplir avec le profil existant dans Supabase
+            const user = netlifyIdentity.currentUser();
+            if (user) {
+                const { data: profil } = await _supabase
+                    .from('profils')
+                    .select('nom_prenom, adresse, telephone')
+                    .eq('email', user.email.toLowerCase())
+                    .maybeSingle();
+
+                if (profil) {
+                    document.getElementById('client-nom').value = profil.nom_prenom || "";
+                    document.getElementById('client-tel').value = profil.telephone || "";
+                    document.getElementById('client-adresse').value = profil.adresse || "";
+                }
+            }
         }
 
         function afficherPanier() {
@@ -88,8 +105,18 @@
             const listeTxt = panier.map(p => `- ${p.titre} (${p.prix}€)`).join('\n');
 
             try {
+                // 1. Mettre à jour le profil client (upsert utilise l'email comme clé unique)
+                await _supabase.from('profils').upsert({
+                    email: user.email.toLowerCase(),
+                    nom_prenom: nom,
+                    adresse: adresse,
+                    telephone: tel
+                }, { onConflict: 'email' });
+
+                // 2. Enregistrer la commande
                 const { error } = await _supabase.from('commande').insert([{
                     client_email: user.email.toLowerCase(),
+                    nom_client: nom,
                     contenu: `CLIENT: ${nom}\nTEL: ${tel}\nADRESSE: ${adresse}\n\nPRODUITS:\n${listeTxt}`,
                     total: totalGlobal,
                     statut: 'En attente',
@@ -98,16 +125,11 @@
 
                 if (error) throw error;
 
-                // Préparation du message WhatsApp
+                // 3. Actions de succès
                 const messageWA = encodeURIComponent(`Coucou Lydie ! 🌸\nJe souhaite commander :\n${listeTxt}\n\n*TOTAL : ${totalGlobal.toFixed(2)}€*\n\nMes coordonnées :\n${nom}\n${tel}\n${adresse}`);
                 
-                // 1. On vide le panier local
                 localStorage.removeItem('panier');
-
-                // 2. On ouvre WhatsApp (va s'ouvrir dans un nouvel onglet)
                 window.open(`https://wa.me/33673460409?text=${messageWA}`, '_blank');
-
-                // 3. On redirige immédiatement vers la page de remerciement
                 window.location.href = "merci.html";
 
             } catch (err) {
@@ -116,6 +138,11 @@
                 btn.innerText = "Confirmer la commande";
             }
         }
+
+        // Initialisation Netlify Identity pour charger le profil au login
+        netlifyIdentity.on('init', user => { if (user) chargerDonnees(); });
+        netlifyIdentity.on('login', () => chargerDonnees());
+
         document.addEventListener("DOMContentLoaded", chargerDonnees);
     </script>
 </body>
