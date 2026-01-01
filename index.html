@@ -72,7 +72,11 @@
 
     <script>
         const _supabase = supabase.createClient("https://rsebvgdneetbbmdchwil.supabase.co", "sb_publishable_c_U9tbQzawyqAVuLTEYWWA_XBW6Fbs6");
-        let panier = JSON.parse(localStorage.getItem('panier')) || [];
+        let panier = [];
+        try {
+            panier = JSON.parse(localStorage.getItem('panier')) || [];
+        } catch(e) { panier = []; }
+        
         let allProducts = [];
 
         document.addEventListener('DOMContentLoaded', () => { 
@@ -137,7 +141,7 @@
 
                         <p class="text-pink-600 font-black text-lg mb-3">${parseFloat(p.prix).toFixed(2)} €</p>
                         
-                        <button onclick="ajouterAuPanier(${p.id})" 
+                        <button onclick="ajouterAuPanier(${p.id}, event)" 
                             ${isOut ? 'disabled' : ''}
                             class="w-full py-2.5 rounded-xl text-[11px] font-bold uppercase transition-all active:scale-95 ${isOut ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-pink-500 text-white shadow-lg shadow-pink-100'}">
                             ${isOut ? 'Épuisé' : 'Ajouter'}
@@ -174,7 +178,7 @@
                 btn.innerText = "Ajouter au panier";
                 btn.disabled = false;
                 btn.className = "w-full bg-pink-500 text-white py-4 rounded-2xl font-black uppercase shadow-xl shadow-pink-200 active:scale-95";
-                btn.onclick = () => { ajouterAuPanier(p.id); closeModal(); };
+                btn.onclick = (e) => { ajouterAuPanier(p.id, e); closeModal(); };
             }
 
             document.getElementById('product-modal').classList.remove('hidden');
@@ -183,21 +187,28 @@
 
         function closeModal() { document.getElementById('product-modal').classList.add('hidden'); document.body.classList.remove('modal-open'); }
 
-        function ajouterAuPanier(id) { 
+        function ajouterAuPanier(id, event) { 
             const p = allProducts.find(item => item.id == id);
             if (!p || p.stock <= 0) return alert("Désolé, ce bijou n'est plus disponible.");
 
-            panier.push({ titre: p.titre, prix: p.prix, image: p.image }); 
+            // Sécurisation stricte avant envoi au localStorage
+            const article = {
+                titre: p.titre || "Bijou sans nom",
+                prix: parseFloat(p.prix) || 0,
+                image: p.image || ""
+            };
+
+            panier.push(article); 
             localStorage.setItem('panier', JSON.stringify(panier));
             updateCartCount();
 
-            // Effet visuel sur le bouton
-            if (window.event && window.event.target && window.event.target.tagName === 'BUTTON') {
-                const b = window.event.target; 
-                const originalText = b.innerText;
-                b.innerText = "✅ AJOUTÉ"; 
-                b.classList.add('!bg-green-500');
-                setTimeout(() => { b.innerText = originalText; b.classList.remove('!bg-green-500'); }, 1000);
+            // Effet visuel
+            const btn = event.target.closest('button');
+            if (btn) {
+                const originalText = btn.innerText;
+                btn.innerText = "✅ AJOUTÉ"; 
+                btn.classList.add('!bg-green-500');
+                setTimeout(() => { btn.innerText = originalText; btn.classList.remove('!bg-green-500'); }, 800);
             }
         }
 
