@@ -79,7 +79,11 @@
         let panier = JSON.parse(localStorage.getItem('panier')) || [];
         let allProducts = [];
 
-        document.addEventListener('DOMContentLoaded', () => { chargerBoutique(); updateCartCount(); });
+        document.addEventListener('DOMContentLoaded', () => { 
+            chargerBoutique(); 
+            updateCartCount(); 
+            incrementerVisiteur(); // <--- APPEL DU COMPTEUR
+        });
 
         netlifyIdentity.on('init', user => { if (user) handleAuth(user); });
         netlifyIdentity.on('login', user => { handleAuth(user); netlifyIdentity.close(); });
@@ -91,6 +95,23 @@
             document.getElementById('btn-mes-commandes').classList.remove('hidden');
             document.getElementById('auth-btn').innerText = "👤 Déconnexion";
             verifierNotifications(user.email);
+        }
+
+        async function incrementerVisiteur() {
+            try {
+                // On vérifie si la visite a déjà été comptée pour cette session
+                if (!sessionStorage.getItem('visite_comptabilisee')) {
+                    // Récupérer la valeur actuelle
+                    const { data: current } = await _supabase.from('statistiques').select('valeur').eq('nom', 'visiteurs').single();
+                    
+                    if (current) {
+                        // Ajouter +1
+                        await _supabase.from('statistiques').update({ valeur: current.valeur + 1 }).eq('nom', 'visiteurs');
+                        // Marquer comme fait pour ne pas recompter au prochain clic
+                        sessionStorage.setItem('visite_comptabilisee', 'true');
+                    }
+                }
+            } catch (e) { console.error("Erreur compteur:", e); }
         }
 
         async function verifierNotifications(email) {
@@ -142,16 +163,13 @@
             document.getElementById('modal-price').innerText = `${parseFloat(p.prix).toFixed(2)} €`;
             document.getElementById('modal-desc').innerText = p.description || "Création artisanale unique. ✨";
             
-            // Badge modale
             const mBadge = document.getElementById('modal-badge');
             mBadge.innerHTML = p.badge ? `<span class="bg-pink-500 text-white text-[10px] font-black px-3 py-1.5 rounded-lg uppercase shadow-lg">${p.badge}</span>` : '';
 
-            // Stock modale
             const sInfo = document.getElementById('modal-stock-info');
             sInfo.innerText = isOut ? "Bientôt de retour" : `Disponible : ${p.stock}`;
             sInfo.className = `text-[10px] font-bold uppercase ${isOut ? 'text-red-500' : 'text-green-500'}`;
 
-            // Bouton modale
             const btn = document.getElementById('modal-add-btn');
             if(isOut) {
                 btn.innerText = "Produit Épuisé";
