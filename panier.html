@@ -74,7 +74,6 @@
             const nom = document.getElementById('client-nom').value.trim();
             const adresse = document.getElementById('client-adresse').value.trim();
             
-            // NETTOYAGE DU NUMÉRO DE TÉLÉPHONE
             let telRaw = document.getElementById('client-tel').value.replace(/\s+/g, '').replace(/\./g, '');
             if (telRaw.startsWith('0')) telRaw = '33' + telRaw.substring(1);
             if (!telRaw.startsWith('33')) telRaw = '33' + telRaw;
@@ -99,13 +98,17 @@
 
                 if (error) throw error;
 
-                // Message envoyé par le CLIENT à LYDIE
+                // Préparation du message WhatsApp
                 const messageWA = encodeURIComponent(`Coucou Lydie ! 🌸\nJe souhaite commander :\n${listeTxt}\n\n*TOTAL : ${totalGlobal.toFixed(2)}€*\n\nMes coordonnées :\n${nom}\n${tel}\n${adresse}`);
                 
+                // 1. On vide le panier local
                 localStorage.removeItem('panier');
-                alert("Commande enregistrée ! Appuie sur OK pour envoyer ton récapitulatif à Lydie sur WhatsApp.");
+
+                // 2. On ouvre WhatsApp (va s'ouvrir dans un nouvel onglet)
                 window.open(`https://wa.me/33673460409?text=${messageWA}`, '_blank');
-                window.location.href = "/";
+
+                // 3. On redirige immédiatement vers la page de remerciement
+                window.location.href = "merci.html";
 
             } catch (err) {
                 alert("Erreur : " + err.message);
