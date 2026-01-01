@@ -100,10 +100,22 @@
 
         async function incrementerVisiteur() {
             try {
+                // On ne compte qu'une visite par session de navigateur
                 if (!sessionStorage.getItem('visite_comptabilisee')) {
-                    const { data: current } = await _supabase.from('statistiques').select('valeur').eq('nom', 'visiteurs').single();
+                    // Récupération sécurisée avec maybeSingle
+                    const { data: current } = await _supabase
+                        .from('statistiques')
+                        .select('valeur')
+                        .eq('nom', 'visiteurs')
+                        .maybeSingle();
+                    
                     if (current) {
-                        await _supabase.from('statistiques').update({ valeur: current.valeur + 1 }).eq('nom', 'visiteurs');
+                        // On ajoute +1 au compteur actuel
+                        await _supabase
+                            .from('statistiques')
+                            .update({ valeur: parseInt(current.valeur) + 1 })
+                            .eq('nom', 'visiteurs');
+                        
                         sessionStorage.setItem('visite_comptabilisee', 'true');
                     }
                 }
@@ -192,7 +204,6 @@
             const p = allProducts.find(item => item.id == id);
             if (!p || p.stock <= 0) return alert("Désolé, ce bijou n'est plus disponible.");
 
-            // MODIFICATION CRITIQUE : ON NE STOCK PLUS L'IMAGE (pour éviter le crash Safari)
             const article = {
                 titre: String(p.titre || "Bijou").trim(),
                 prix: parseFloat(p.prix) || 0
