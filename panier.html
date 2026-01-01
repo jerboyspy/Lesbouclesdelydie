@@ -39,17 +39,16 @@
         let fraisPortAppliques = 4.50;
 
         async function chargerDonnees() {
-            // Charger le panier local
             try {
                 const data = localStorage.getItem('panier');
                 panier = data ? JSON.parse(data) : [];
             } catch (e) { panier = []; }
             afficherPanier();
 
-            // Tenter de pré-remplir avec le profil existant dans Supabase
+            // RÉCUPÉRATION DU PROFIL
             const user = netlifyIdentity.currentUser();
             if (user) {
-                const { data: profil } = await _supabase
+                const { data: profil, error } = await _supabase
                     .from('profils')
                     .select('nom_prenom, adresse, telephone')
                     .eq('email', user.email.toLowerCase())
@@ -96,7 +95,7 @@
             if (!telRaw.startsWith('33')) telRaw = '33' + telRaw;
             const tel = telRaw;
 
-            if (!nom || tel.length < 10 || !adresse) return alert("⚠️ Merci de vérifier tes coordonnées et ton numéro.");
+            if (!nom || tel.length < 10 || !adresse) return alert("⚠️ Merci de vérifier tes coordonnées.");
 
             const btn = document.getElementById('btn-valider');
             btn.disabled = true;
@@ -105,7 +104,7 @@
             const listeTxt = panier.map(p => `- ${p.titre} (${p.prix}€)`).join('\n');
 
             try {
-                // 1. Mettre à jour le profil client (upsert utilise l'email comme clé unique)
+                // MISE À JOUR DU PROFIL
                 await _supabase.from('profils').upsert({
                     email: user.email.toLowerCase(),
                     nom_prenom: nom,
@@ -113,7 +112,7 @@
                     telephone: tel
                 }, { onConflict: 'email' });
 
-                // 2. Enregistrer la commande
+                // ENREGISTREMENT COMMANDE
                 const { error } = await _supabase.from('commande').insert([{
                     client_email: user.email.toLowerCase(),
                     nom_client: nom,
@@ -125,7 +124,6 @@
 
                 if (error) throw error;
 
-                // 3. Actions de succès
                 const messageWA = encodeURIComponent(`Coucou Lydie ! 🌸\nJe souhaite commander :\n${listeTxt}\n\n*TOTAL : ${totalGlobal.toFixed(2)}€*\n\nMes coordonnées :\n${nom}\n${tel}\n${adresse}`);
                 
                 localStorage.removeItem('panier');
@@ -139,11 +137,19 @@
             }
         }
 
-        // Initialisation Netlify Identity pour charger le profil au login
-        netlifyIdentity.on('init', user => { if (user) chargerDonnees(); });
-        netlifyIdentity.on('login', () => chargerDonnees());
+        // --- GESTION DES ÉVÉNEMENTS D'IDENTITÉ ---
+        netlifyIdentity.on('init', user => {
+            if (user) chargerDonnees();
+        });
+        
+        netlifyIdentity.on('login', user => {
+            chargerDonnees(); // Recharge les données dès la connexion
+        });
 
-        document.addEventListener("DOMContentLoaded", chargerDonnees);
+        document.addEventListener("DOMContentLoaded", () => {
+            // Un petit délai pour laisser Identity s'initialiser
+            setTimeout(chargerDonnees, 500);
+        });
     </script>
 </body>
 </html>
