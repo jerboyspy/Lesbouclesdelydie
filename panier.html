@@ -20,7 +20,7 @@
         <div class="bg-white p-6 rounded-3xl shadow-xl border border-pink-100 mb-6 space-y-4">
             <h3 class="text-center font-bold text-pink-500 uppercase text-xs tracking-widest">Tes Coordonnées</h3>
             <input type="text" id="client-nom" placeholder="Prénom et Nom" class="w-full p-4 bg-gray-100 rounded-2xl border-none text-sm focus:ring-2 focus:ring-pink-300">
-            <input type="tel" id="client-tel" placeholder="Téléphone" class="w-full p-4 bg-gray-100 rounded-2xl border-none text-sm focus:ring-2 focus:ring-pink-300">
+            <input type="tel" id="client-tel" placeholder="Téléphone (ex: 06...)" class="w-full p-4 bg-gray-100 rounded-2xl border-none text-sm focus:ring-2 focus:ring-pink-300">
             <textarea id="client-adresse" placeholder="Adresse complète" class="w-full p-4 bg-gray-100 rounded-2xl border-none text-sm h-24 focus:ring-2 focus:ring-pink-300"></textarea>
         </div>
 
@@ -72,10 +72,15 @@
             if (!user) return netlifyIdentity.open();
 
             const nom = document.getElementById('client-nom').value.trim();
-            const tel = document.getElementById('client-tel').value.trim();
             const adresse = document.getElementById('client-adresse').value.trim();
+            
+            // NETTOYAGE DU NUMÉRO DE TÉLÉPHONE
+            let telRaw = document.getElementById('client-tel').value.replace(/\s+/g, '').replace(/\./g, '');
+            if (telRaw.startsWith('0')) telRaw = '33' + telRaw.substring(1);
+            if (!telRaw.startsWith('33')) telRaw = '33' + telRaw;
+            const tel = telRaw;
 
-            if (!nom || !tel || !adresse) return alert("⚠️ Remplis tes coordonnées.");
+            if (!nom || tel.length < 10 || !adresse) return alert("⚠️ Merci de vérifier tes coordonnées et ton numéro.");
 
             const btn = document.getElementById('btn-valider');
             btn.disabled = true;
@@ -84,7 +89,6 @@
             const listeTxt = panier.map(p => `- ${p.titre} (${p.prix}€)`).join('\n');
 
             try {
-                // Envoi utilisant uniquement les colonnes présentes dans ton Supabase
                 const { error } = await _supabase.from('commande').insert([{
                     client_email: user.email.toLowerCase(),
                     contenu: `CLIENT: ${nom}\nTEL: ${tel}\nADRESSE: ${adresse}\n\nPRODUITS:\n${listeTxt}`,
@@ -95,9 +99,11 @@
 
                 if (error) throw error;
 
-                const messageWA = encodeURIComponent(`Nouvelle commande de *${nom}*\n\n${listeTxt}\n\n*TOTAL : ${totalGlobal.toFixed(2)}€*`);
+                // Message envoyé par le CLIENT à LYDIE
+                const messageWA = encodeURIComponent(`Coucou Lydie ! 🌸\nJe souhaite commander :\n${listeTxt}\n\n*TOTAL : ${totalGlobal.toFixed(2)}€*\n\nMes coordonnées :\n${nom}\n${tel}\n${adresse}`);
+                
                 localStorage.removeItem('panier');
-                alert("Commande validée !");
+                alert("Commande enregistrée ! Appuie sur OK pour envoyer ton récapitulatif à Lydie sur WhatsApp.");
                 window.open(`https://wa.me/33673460409?text=${messageWA}`, '_blank');
                 window.location.href = "/";
 
