@@ -30,6 +30,20 @@
                 📥 Télécharger le bilan .txt
             </button>
         </div>
+
+        <div class="grid grid-cols-1 gap-4 mb-6">
+            <div class="bg-white p-6 rounded-3xl shadow-sm border border-pink-100 flex flex-col items-center justify-center">
+                <p class="text-[9px] font-black uppercase text-gray-400 mb-1 tracking-tighter">👀 Visiteurs sur le site</p>
+                <h3 id="total-visiteurs" class="text-3xl font-black text-pink-500">...</h3>
+            </div>
+
+            <div class="bg-white p-5 rounded-3xl shadow-sm border border-pink-100">
+                <p class="text-[9px] font-black uppercase text-pink-400 mb-3 text-center tracking-widest">🏆 Meilleures Clientes (€)</p>
+                <div id="classement-acheteurs" class="space-y-2">
+                    <p class="text-center text-[10px] text-gray-400 italic">Analyse des fidélités...</p>
+                </div>
+            </div>
+        </div>
         
         <div class="bg-white p-4 rounded-2xl shadow-sm mb-6 border border-pink-100">
             <h3 class="text-[10px] font-black uppercase text-pink-400 mb-3 text-center">Configuration Livraison (Défaut)</h3>
@@ -56,25 +70,44 @@
 
         netlifyIdentity.on('init', user => {
             if (!user || user.email.toLowerCase() !== "lydie90@wanadoo.fr") window.location.href = "/";
-            else { document.body.style.display = "block"; chargerCommandes(); }
+            else { 
+                document.body.style.display = "block"; 
+                chargerCommandes();
+                chargerVisiteurs();
+            }
         });
+
+        async function chargerVisiteurs() {
+            try {
+                const { data } = await _supabase.from('statistiques').select('valeur').eq('nom', 'visiteurs').single();
+                if (data) document.getElementById('total-visiteurs').innerText = data.valeur;
+            } catch (e) { document.getElementById('total-visiteurs').innerText = "0"; }
+        }
 
         async function chargerCommandes() {
             const { data, error } = await _supabase.from('commande').select('*').order('created_at', { ascending: false });
             if (error) return;
             allData = data;
 
+            // Stats mensuelles
             const statsContainer = document.getElementById('stats-mois');
             const gainsParMois = {};
+            const depensesParClient = {};
             
-            data.filter(c => c.statut === 'Clôturée').forEach(c => {
-                const mois = new Date(c.created_at).toLocaleString('fr-FR', { month: 'long', year: 'numeric' });
-                const totalClient = parseFloat(c.total) || 0;
-                const portEffectif = parseFloat(c.frais_port) || 0;
-                const gainNet = totalClient - portEffectif;
-                gainsParMois[mois] = (gainsParMois[mois] || 0) + gainNet;
+            data.forEach(c => {
+                if (c.statut === 'Clôturée') {
+                    const mois = new Date(c.created_at).toLocaleString('fr-FR', { month: 'long', year: 'numeric' });
+                    const net = (parseFloat(c.total) || 0) - (parseFloat(c.frais_port) || 0);
+                    gainsParMois[mois] = (gainsParMois[mois] || 0) + net;
+                }
+                
+                // Pour le classement (on prend toutes les commandes payées/validées/expédiées/clôturées)
+                if (['Validée', 'Payée', 'Expédiée', 'Clôturée'].includes(c.statut)) {
+                    depensesParClient[c.client_email] = (depensesParClient[c.client_email] || 0) + (parseFloat(c.total) || 0);
+                }
             });
 
+            // Rendu Gains
             statsContainer.innerHTML = Object.entries(gainsParMois).map(([m, t]) => `
                 <div class="flex justify-between items-center border-b border-white/5 pb-2">
                     <span class="text-[10px] font-bold uppercase text-gray-400 capitalize">${m}</span>
@@ -82,6 +115,19 @@
                 </div>
             `).join('') || '<p class="text-center text-xs text-gray-500 italic">Aucun gain clôturé.</p>';
 
+            // Rendu Classement
+            const classementTrie = Object.entries(depensesParClient).sort((a, b) => b[1] - a[1]).slice(0, 5);
+            document.getElementById('classement-acheteurs').innerHTML = classementTrie.map(([email, total], i) => `
+                <div class="flex items-center justify-between bg-pink-50/50 p-2 rounded-xl border border-pink-100">
+                    <div class="flex items-center gap-2 truncate">
+                        <span class="bg-pink-500 text-white text-[8px] font-black w-4 h-4 flex items-center justify-center rounded-full">#${i+1}</span>
+                        <span class="text-[10px] font-bold truncate text-gray-600">${email}</span>
+                    </div>
+                    <span class="text-[11px] font-black text-pink-600 ml-2">${total.toFixed(2)}€</span>
+                </div>
+            `).join('') || '<p class="text-center text-[10px] text-gray-400 italic">Aucune commande.</p>';
+
+            // Rendu Liste Commandes
             const container = document.getElementById('liste-admin');
             container.innerHTML = data.map(c => {
                 const sColors = { 'En attente': 'bg-orange-100 text-orange-700', 'Validée': 'bg-green-100 text-green-700', 'Payée': 'bg-blue-100 text-blue-700', 'Expédiée': 'bg-purple-100 text-purple-700', 'Clôturée': 'bg-gray-200 text-gray-500' };
@@ -139,50 +185,32 @@
             const elPrix = document.getElementById(`prix-final-${id}`);
             const elPort = document.getElementById(`port-${id}`);
             if (!elPrix || !elPort) return;
-
             const prixFinal = parseFloat(elPrix.value);
             const fraisPort = parseFloat(elPort.value);
             
-            // --- MISE À JOUR DES STOCKS AUTOMATIQUE ---
             try {
-                // On extrait les noms des bijoux du bloc texte (format attendu: "- Nom du bijou (Prix€)")
                 const lignes = bloc.split('\n');
                 for (let ligne of lignes) {
                     if (ligne.trim().startsWith('-')) {
-                        // On récupère le nom du bijou avant la parenthèse du prix
                         let nomProduit = ligne.replace('-', '').split('(')[0].trim();
-                        
-                        // On cherche le produit dans Supabase pour avoir son stock actuel
                         const { data: pData } = await _supabase.from('produits').select('id, stock').eq('titre', nomProduit).single();
-                        
                         if (pData && pData.stock > 0) {
-                            // On déduit 1 du stock
                             await _supabase.from('produits').update({ stock: pData.stock - 1 }).eq('id', pData.id);
                         }
                     }
                 }
-            } catch (err) { console.error("Erreur mise à jour stock:", err); }
+            } catch (err) { console.error("Stock error:", err); }
 
-            // Mise à jour de la commande
-            const { error } = await _supabase.from('commande').update({ 
-                total: prixFinal, 
-                frais_port: fraisPort, 
-                statut: 'Validée' 
-            }).eq('id', id);
-
+            const { error } = await _supabase.from('commande').update({ total: prixFinal, frais_port: fraisPort, statut: 'Validée' }).eq('id', id);
             if (!error) {
-                const msg = `Coucou 🌸 C'est Lydie. Stock validé ! ✅\nTotal à régler : ${prixFinal.toFixed(2)}€.\nTu peux faire ton Wero sur mon numéro. Merci ! ✨`;
-                ouvrirWhatsApp(bloc, msg);
+                ouvrirWhatsApp(bloc, `Coucou 🌸 C'est Lydie. Stock validé ! ✅\nTotal à régler : ${prixFinal.toFixed(2)}€.\nTu peux faire ton Wero sur mon numéro. Merci ! ✨`);
                 chargerCommandes();
             }
         }
 
         async function changerStatut(id, statut, message, bloc) {
             const { error } = await _supabase.from('commande').update({ statut: statut }).eq('id', id);
-            if (!error) {
-                ouvrirWhatsApp(bloc, message);
-                chargerCommandes();
-            }
+            if (!error) { ouvrirWhatsApp(bloc, message); chargerCommandes(); }
         }
 
         function ouvrirWhatsApp(bloc, message) {
@@ -190,17 +218,13 @@
             if (match && match[1]) {
                 let tel = match[1].replace(/[\s\+\.]/g, ''); 
                 if(tel.startsWith('0')) tel = '33' + tel.substring(1);
-                if(!tel.startsWith('33')) tel = '33' + tel;
-                
                 const url = `https://wa.me/${tel}?text=${encodeURIComponent(message)}`;
                 window.open(url, '_blank');
-            } else {
-                alert("Numéro de téléphone non trouvé.");
             }
         }
 
         async function cloturerCommande(id) {
-            if (confirm("Clôturer définitivement cette vente ?")) {
+            if (confirm("Clôturer ?")) {
                 const { error } = await _supabase.from('commande').update({ statut: 'Clôturée' }).eq('id', id);
                 if (!error) chargerCommandes();
             }
@@ -209,24 +233,21 @@
         function telechargerBilan() {
             const cloturees = allData.filter(c => c.statut === 'Clôturée');
             let totalNetGlobal = 0;
-            let txt = "BILAN GAINS BIJOUX - LES BOUCLES DE LYDIE\n========================================\n\n";
+            let txt = "BILAN - LES BOUCLES DE LYDIE\n\n";
             cloturees.forEach(c => {
-                const t = parseFloat(c.total);
-                const port = parseFloat(c.frais_port) || 0;
-                const net = t - port;
+                const net = parseFloat(c.total) - (parseFloat(c.frais_port) || 0);
                 totalNetGlobal += net;
-                txt += `${new Date(c.created_at).toLocaleDateString()} | ${c.client_email}\nGain Net: ${net.toFixed(2)}€ (Port: ${port.toFixed(2)}€ | Total: ${t.toFixed(2)}€)\n----------------------------------------\n`;
+                txt += `${new Date(c.created_at).toLocaleDateString()} | ${c.client_email} | Gain: ${net.toFixed(2)}€\n`;
             });
-            txt += `\nTOTAL NET RÉCOLTÉ (HORS PORT) : ${totalNetGlobal.toFixed(2)}€`;
-            const blob = new Blob([txt], { type: 'text/plain' });
+            txt += `\nTOTAL NET RÉCOLTÉ : ${totalNetGlobal.toFixed(2)}€`;
             const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = `bilan_lydie_${new Date().toLocaleDateString('fr-FR').replace(/\//g, '-')}.txt`;
+            link.href = URL.createObjectURL(new Blob([txt], { type: 'text/plain' }));
+            link.download = `bilan_lydie.txt`;
             link.click();
         }
 
         async function supprimerCommande(id) {
-            if (confirm("Supprimer cette commande ?")) {
+            if (confirm("Supprimer ?")) {
                 await _supabase.from('commande').delete().eq('id', id);
                 chargerCommandes();
             }
