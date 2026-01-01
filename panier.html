@@ -48,24 +48,46 @@
                 Commander & Envoyer à Lydie
             </button>
         </div>
+
+        <button onclick="forcerViderPanier()" class="w-full mt-10 text-[10px] text-gray-400 underline uppercase tracking-widest opacity-50">
+            Problème d'affichage ? Vider le panier
+        </button>
     </div>
 
     <script>
         const _supabase = supabase.createClient("https://rsebvgdneetbbmdchwil.supabase.co", "sb_publishable_c_U9tbQzawyqAVuLTEYWWA_XBW6Fbs6");
-        let panier = JSON.parse(localStorage.getItem('panier')) || [];
+        
+        // --- BLINDAGE INITIAL ---
+        let panier = [];
+        try {
+            const stored = localStorage.getItem('panier');
+            panier = stored ? JSON.parse(stored) : [];
+            if (!Array.isArray(panier)) panier = [];
+        } catch (e) {
+            console.error("Panier corrompu, réinitialisation...");
+            localStorage.setItem('panier', '[]');
+            panier = [];
+        }
+
         let totalGlobal = 0;
         let profilExistant = null;
+
+        function forcerViderPanier() {
+            if(confirm("Cela va vider votre panier pour corriger l'erreur d'affichage. Continuer ?")) {
+                localStorage.removeItem('panier');
+                window.location.href = "/";
+            }
+        }
 
         function afficherPanier() {
             const container = document.getElementById('liste-panier');
             
-            // --- SÉCURITÉ RENFORCÉE ---
-            // On filtre pour ne garder que les objets valides et on nettoie le localStorage
+            // Nettoyage des données
             panier = panier.filter(item => item && (item.titre || item.nom) && item.prix != null);
             localStorage.setItem('panier', JSON.stringify(panier));
 
             if (panier.length === 0) {
-                container.innerHTML = `<div class="text-center py-10"><p class="text-gray-400 mb-4">Ton panier est vide ou ces produits ne sont plus disponibles 🌸</p><a href="/" class="text-pink-500 font-bold text-sm">Voir la collection</a></div>`;
+                container.innerHTML = `<div class="text-center py-10"><p class="text-gray-400 mb-4">Ton panier est vide 🌸</p><a href="/" class="text-pink-500 font-bold text-sm">Voir la collection</a></div>`;
                 calculerTotal();
                 return;
             }
@@ -77,11 +99,11 @@
                              onerror="this.src='https://via.placeholder.com/150?text=Bijou'" 
                              class="w-16 h-16 rounded-xl object-cover bg-gray-50">
                         <div>
-                            <p class="font-bold text-sm">${item.titre || item.nom || 'Produit sans nom'}</p>
+                            <p class="font-bold text-sm">${item.titre || item.nom || 'Produit'}</p>
                             <p class="text-pink-500 font-bold text-xs">${item.prix}€</p>
                         </div>
                     </div>
-                    <button onclick="retirer(${index})" class="text-gray-300 hover:text-red-500 p-2 transition-colors text-xl">🗑️</button>
+                    <button onclick="retirer(${index})" class="text-gray-300 p-2 text-xl">🗑️</button>
                 </div>`).join('');
             
             calculerTotal();
@@ -138,48 +160,31 @@
                 nom = document.getElementById('client-nom').value;
                 let telSaisi = document.getElementById('client-tel').value.replace(/\s/g, '');
                 adresse = document.getElementById('client-adresse').value;
-                
                 if (!nom || !telSaisi || !adresse) return alert("Merci de remplir tes coordonnées 🌸");
-
-                if(telSaisi.startsWith('0')) tel = '33' + telSaisi.substring(1);
-                else if (!telSaisi.startsWith('33')) tel = '33' + telSaisi;
-                else tel = telSaisi;
-                
+                tel = telSaisi.startsWith('0') ? '33' + telSaisi.substring(1) : telSaisi;
                 await _supabase.from('profils').insert([{ email: user.email.toLowerCase(), nom_prenom: nom, telephone: tel, adresse: adresse }]);
             }
 
             btn.disabled = true;
-            btn.innerText = "Traitement...";
+            btn.innerText = "Envoi...";
 
             const listeProduits = panier.map(p => `- ${p.titre || p.nom} (${p.prix}€)`).join('\n');
-            const contenuTxt = `Tel: ${tel}\nEmail: ${user.email}\nAdresse: ${adresse}\n\nProduits:\n${listeProduits}`;
-
             const { error } = await _supabase.from('commande').insert([{
                 client_email: user.email.toLowerCase(),
                 nom_client: nom,
-                contenu: contenuTxt,
+                contenu: `Tel: ${tel}\nProduits:\n${listeProduits}`,
                 total: totalGlobal,
                 statut: 'En attente'
             }]);
 
             if (!error) {
-                const messageWhatsApp = encodeURIComponent(
-                    `Coucou Lydie ! 🌸\n` +
-                    `Nouvelle commande de *${nom}*\n` +
-                    `Total : ${totalGlobal.toFixed(2)}€\n\n` +
-                    `Détails :\n${listeProduits}\n\n` +
-                    `Lien client : https://wa.me/${tel}`
-                );
-                
+                const message = encodeURIComponent(`Coucou Lydie ! 🌸\nCommande de *${nom}*\nTotal : ${totalGlobal.toFixed(2)}€\n\nProduits :\n${listeProduits}`);
                 localStorage.removeItem('panier');
-                window.open(`https://wa.me/33673460409?text=${messageWhatsApp}`, '_blank');
-                
-                // Redirection immédiate vers la page merci
+                window.open(`https://wa.me/33673460409?text=${message}`, '_blank');
                 window.location.href = "/merci.html";
             } else {
-                alert("Erreur technique. Vérifie ta connexion.");
+                alert("Erreur réseau");
                 btn.disabled = false;
-                btn.innerText = "Réessayer";
             }
         }
 
