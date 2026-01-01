@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mon Panier - Les Boucles de Lydie</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 </head>
 <body class="bg-gray-50 p-4 pb-20 font-sans text-gray-800">
@@ -14,8 +15,15 @@
             <h1 class="text-2xl font-black italic text-pink-600">Mon Panier</h1>
         </div>
 
-        <div id="liste-panier" class="space-y-4 mb-8">
-            </div>
+        <div id="liste-panier" class="space-y-4 mb-8"></div>
+
+        <div id="form-coordonnees" class="hidden bg-white p-6 rounded-3xl shadow-xl border border-pink-100 mb-6 space-y-4">
+            <h3 class="text-center font-bold text-pink-500 uppercase text-xs tracking-widest">Tes Coordonnées</h3>
+            <input type="text" id="client-nom" placeholder="Prénom et Nom" class="w-full p-4 bg-gray-100 rounded-2xl border-none text-sm focus:ring-2 focus:ring-pink-300">
+            <input type="text" id="client-tel" placeholder="Téléphone (WhatsApp)" class="w-full p-4 bg-gray-100 rounded-2xl border-none text-sm focus:ring-2 focus:ring-pink-300">
+            <textarea id="client-adresse" placeholder="Adresse complète (Rue, Ville, Code Postal)" class="w-full p-4 bg-gray-100 rounded-2xl border-none text-sm h-24 focus:ring-2 focus:ring-pink-300"></textarea>
+            <p class="text-[9px] text-gray-400 italic text-center">Ces informations seront enregistrées pour tes prochaines commandes ✨</p>
+        </div>
 
         <div class="bg-white p-6 rounded-3xl shadow-xl border border-pink-100 space-y-3">
             <div class="flex justify-between font-bold">
@@ -34,63 +42,59 @@
             
             <p id="info-port" class="text-[10px] text-center text-pink-400 font-bold uppercase min-h-[15px]"></p>
 
-            <button onclick="validerCommande()" class="w-full bg-pink-500 text-white py-5 rounded-2xl font-black uppercase shadow-lg mt-4 active:scale-95 transition-transform">
-                Commander
+            <button id="btn-valider" onclick="validerCommande()" class="w-full bg-pink-500 text-white py-5 rounded-2xl font-black uppercase shadow-lg mt-4 active:scale-95 transition-transform">
+                Confirmer ma commande
             </button>
         </div>
     </div>
 
     <script>
+        const _supabase = supabase.createClient("https://rsebvgdneetbbmdchwil.supabase.co", "sb_publishable_c_U9tbQzawyqAVuLTEYWWA_XBW6Fbs6");
         let panier = JSON.parse(localStorage.getItem('panier')) || [];
+        let totalGlobal = 0;
+        let profilExistant = null;
 
         function afficherPanier() {
             const container = document.getElementById('liste-panier');
             if (panier.length === 0) {
-                container.innerHTML = `
-                    <div class="text-center py-10">
-                        <p class="text-gray-400 mb-4">Votre panier est vide 🌸</p>
-                        <a href="/" class="text-pink-500 font-bold text-sm">Voir la collection</a>
-                    </div>`;
+                container.innerHTML = `<div class="text-center py-10"><p class="text-gray-400 mb-4">Votre panier est vide 🌸</p><a href="/" class="text-pink-500 font-bold text-sm">Voir la collection</a></div>`;
                 calculerTotal();
                 return;
             }
-
             container.innerHTML = panier.map((item, index) => `
                 <div class="flex items-center justify-between bg-white p-3 rounded-2xl shadow-sm border border-gray-100">
                     <div class="flex items-center gap-3">
                         <img src="${item.image}" class="w-16 h-16 rounded-xl object-cover">
-                        <div>
-                            <p class="font-bold text-sm">${item.titre || item.nom}</p>
-                            <p class="text-pink-500 font-bold text-xs">${item.prix}€</p>
-                        </div>
+                        <div><p class="font-bold text-sm">${item.titre || item.nom}</p><p class="text-pink-500 font-bold text-xs">${item.prix}€</p></div>
                     </div>
                     <button onclick="retirer(${index})" class="text-gray-300 hover:text-red-500 p-2 transition-colors">🗑️</button>
-                </div>
-            `).join('');
-
+                </div>`).join('');
             calculerTotal();
+            verifierProfil();
+        }
+
+        async function verifierProfil() {
+            const user = netlifyIdentity.currentUser();
+            if (user && panier.length > 0) {
+                const { data } = await _supabase.from('profils').select('*').eq('email', user.email.toLowerCase()).single();
+                if (data) {
+                    profilExistant = data;
+                    document.getElementById('form-coordonnees').classList.add('hidden');
+                } else {
+                    document.getElementById('form-coordonnees').classList.remove('hidden');
+                }
+            }
         }
 
         function calculerTotal() {
             const st = panier.reduce((sum, item) => sum + parseFloat(item.prix), 0);
-            // On récupère les réglages ou on utilise les valeurs par défaut
-            const portParDefaut = 4.50;
-            const seuilParDefaut = 50;
-            
-            const port = (st >= seuilParDefaut || st === 0) ? 0 : portParDefaut;
-            
+            const port = (st >= 50 || st === 0) ? 0 : 4.50;
+            totalGlobal = st + port;
             document.getElementById('sous-total').innerText = st.toFixed(2) + "€";
             document.getElementById('frais-port').innerText = port === 0 ? "OFFERT" : port.toFixed(2) + "€";
-            document.getElementById('total-final').innerText = (st + port).toFixed(2) + "€";
-            
+            document.getElementById('total-final').innerText = totalGlobal.toFixed(2) + "€";
             const info = document.getElementById('info-port');
-            if(st < seuilParDefaut && st > 0) {
-                info.innerText = `Plus que ${(seuilParDefaut - st).toFixed(2)}€ pour les frais de port gratuits !`;
-            } else if (st >= seuilParDefaut) {
-                info.innerText = "Félicitations ! Frais de port offerts 🎉";
-            } else {
-                info.innerText = "";
-            }
+            info.innerText = st < 50 && st > 0 ? `Plus que ${(50 - st).toFixed(2)}€ pour le port gratuit !` : (st >= 50 ? "Port offert 🎉" : "");
         }
 
         function retirer(index) {
@@ -99,27 +103,53 @@
             afficherPanier();
         }
 
-        function validerCommande() {
-            if (panier.length === 0) {
-                alert("Votre panier est vide !");
-                return;
-            }
-
-            // Vérifier si l'utilisateur est connecté via Netlify Identity
+        async function validerCommande() {
             const user = netlifyIdentity.currentUser();
-            
-            if (!user) {
-                alert("Veuillez vous connecter pour finaliser votre commande 🌸");
-                netlifyIdentity.open(); // Ouvre la fenêtre de connexion
-                return;
+            if (!user) return netlifyIdentity.open();
+            if (panier.length === 0) return alert("Panier vide !");
+
+            const btn = document.getElementById('btn-valider');
+            let nom, tel, adresse;
+
+            if (profilExistant) {
+                nom = profilExistant.nom_prenom;
+                tel = profilExistant.telephone;
+                adresse = profilExistant.adresse;
+            } else {
+                nom = document.getElementById('client-nom').value;
+                tel = document.getElementById('client-tel').value;
+                adresse = document.getElementById('client-adresse').value;
+                if (!nom || !tel || !adresse) return alert("Merci de remplir tes coordonnées 🌸");
+                
+                // Sauvegarde du profil pour la prochaine fois
+                await _supabase.from('profils').insert([{ email: user.email.toLowerCase(), nom_prenom: nom, telephone: tel, adresse: adresse }]);
             }
 
-            // Si connecté, on va vers la page de saisie des coordonnées (commande.html)
-            window.location.href = "/commande.html";
+            btn.disabled = true;
+            btn.innerText = "Enregistrement...";
+
+            const contenuTxt = `Client: ${nom}\nTel: ${tel}\nAdresse: ${adresse}\nEmail: ${user.email}\n\nProduits:\n${panier.map(p => `- ${p.titre} (${p.prix}€)`).join('\n')}`;
+
+            const { error } = await _supabase.from('commande').insert([{
+                client_email: user.email.toLowerCase(),
+                nom_client: nom,
+                contenu: contenuTxt,
+                total: totalGlobal,
+                statut: 'En attente'
+            }]);
+
+            if (!error) {
+                localStorage.removeItem('panier');
+                alert("Commande validée ! Lydie va te contacter sur WhatsApp ✨");
+                window.location.href = "/mes-commandes.html";
+            } else {
+                alert("Erreur lors de la commande.");
+                btn.disabled = false;
+            }
         }
 
-        // Initialisation
         document.addEventListener("DOMContentLoaded", afficherPanier);
+        netlifyIdentity.on('login', () => location.reload());
     </script>
 </body>
 </html>
