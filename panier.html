@@ -15,7 +15,7 @@
             <h1 class="text-2xl font-black italic text-pink-600">Mon Panier</h1>
         </div>
 
-        <div id="liste-panier" class="space-y-4 mb-8"></div>
+        <div id="liste-panier" class="space-y-3 mb-8"></div>
 
         <div id="form-coordonnees" class="hidden bg-white p-6 rounded-3xl shadow-xl border border-pink-100 mb-6 space-y-4">
             <h3 class="text-center font-bold text-pink-500 uppercase text-xs tracking-widest">Tes Coordonnées</h3>
@@ -36,7 +36,7 @@
         </div>
 
         <button onclick="viderForce()" class="w-full mt-10 text-[10px] text-gray-400 underline uppercase tracking-widest opacity-50">
-            Vider le panier manuellement
+            Vider le panier (Nettoyage)
         </button>
     </div>
 
@@ -54,8 +54,6 @@
 
         function afficherPanier() {
             const container = document.getElementById('liste-panier');
-            
-            // Nettoyage de sécurité
             panier = panier.filter(item => item && item.prix);
 
             if (panier.length === 0) {
@@ -64,28 +62,20 @@
                 return;
             }
 
-            container.innerHTML = panier.map((item, index) => {
-                const nom = item.titre || "Bijou";
-                const prix = parseFloat(item.prix).toFixed(2);
-                const image = item.image || "";
-
-                return `
-                <div class="flex items-center justify-between bg-white p-3 rounded-2xl shadow-sm border border-gray-100">
-                    <div class="flex items-center gap-3">
-                        <div class="w-16 h-16 bg-gray-50 rounded-xl overflow-hidden flex-shrink-0">
-                            <img src="${image}" 
-                                 loading="lazy"
-                                 onerror="this.style.opacity='0'" 
-                                 class="w-full h-full object-cover">
+            // Version texte uniquement : très léger pour le téléphone
+            container.innerHTML = panier.map((item, index) => `
+                <div class="flex items-center justify-between bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+                    <div class="flex items-center gap-4">
+                        <div class="bg-pink-50 text-pink-400 w-10 h-10 rounded-full flex items-center justify-center font-bold">
+                            ${index + 1}
                         </div>
                         <div>
-                            <p class="font-bold text-sm text-gray-800">${nom}</p>
-                            <p class="text-pink-500 font-bold text-xs">${prix}€</p>
+                            <p class="font-bold text-sm text-gray-800">${item.titre || "Bijou"}</p>
+                            <p class="text-pink-500 font-bold text-xs">${parseFloat(item.prix).toFixed(2)}€</p>
                         </div>
                     </div>
-                    <button onclick="retirer(${index})" class="text-gray-300 p-2 text-xl">🗑️</button>
-                </div>`;
-            }).join('');
+                    <button onclick="retirer(${index})" class="bg-gray-50 text-gray-400 p-2 rounded-xl text-lg">🗑️</button>
+                </div>`).join('');
             
             calculerTotal();
             verifierProfil();
@@ -144,22 +134,14 @@
                 tel = document.getElementById('client-tel').value.replace(/\s/g, '');
                 adresse = document.getElementById('client-adresse').value.trim();
 
-                if (!nom || !tel || !adresse) return alert("N'oublie pas de remplir tes coordonnées pour la livraison 🌸");
-                
-                // Formatage téléphone pour Supabase
+                if (!nom || !tel || !adresse) return alert("Complète tes coordonnées pour la livraison 🌸");
                 if (tel.startsWith('0')) tel = '33' + tel.substring(1);
                 
-                await _supabase.from('profils').insert([{ 
-                    email: user.email.toLowerCase(), 
-                    nom_prenom: nom, 
-                    telephone: tel, 
-                    adresse: adresse 
-                }]);
+                await _supabase.from('profils').insert([{ email: user.email.toLowerCase(), nom_prenom: nom, telephone: tel, adresse: adresse }]);
             }
 
             const listeTxt = panier.map(p => `- ${p.titre} (${p.prix}€)`).join('\n');
             
-            // Enregistrement commande
             const { error } = await _supabase.from('commande').insert([{
                 client_email: user.email.toLowerCase(),
                 nom_client: nom,
@@ -174,7 +156,7 @@
                 window.open(`https://wa.me/33673460409?text=${message}`, '_blank');
                 window.location.href = "/";
             } else {
-                alert("Petit souci technique... Réessaie ou contacte-moi sur WhatsApp !");
+                alert("Erreur de connexion, réessaie.");
             }
         }
 
