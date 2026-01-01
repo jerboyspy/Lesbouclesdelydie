@@ -20,9 +20,11 @@
         <div id="form-coordonnees" class="hidden bg-white p-6 rounded-3xl shadow-xl border border-pink-100 mb-6 space-y-4">
             <h3 class="text-center font-bold text-pink-500 uppercase text-xs tracking-widest">Tes Coordonnées</h3>
             <input type="text" id="client-nom" placeholder="Prénom et Nom" class="w-full p-4 bg-gray-100 rounded-2xl border-none text-sm focus:ring-2 focus:ring-pink-300">
-            <input type="text" id="client-tel" placeholder="Téléphone (WhatsApp)" class="w-full p-4 bg-gray-100 rounded-2xl border-none text-sm focus:ring-2 focus:ring-pink-300">
+            <div class="relative">
+                <input type="tel" id="client-tel" placeholder="Téléphone (ex: 0612...)" class="w-full p-4 bg-gray-100 rounded-2xl border-none text-sm focus:ring-2 focus:ring-pink-300">
+                <p class="text-[9px] text-gray-400 mt-1 ml-2 italic">Format WhatsApp auto ✨</p>
+            </div>
             <textarea id="client-adresse" placeholder="Adresse complète (Rue, Ville, Code Postal)" class="w-full p-4 bg-gray-100 rounded-2xl border-none text-sm h-24 focus:ring-2 focus:ring-pink-300"></textarea>
-            <p class="text-[9px] text-gray-400 italic text-center">Ces informations seront enregistrées pour tes prochaines commandes ✨</p>
         </div>
 
         <div class="bg-white p-6 rounded-3xl shadow-xl border border-pink-100 space-y-3">
@@ -43,7 +45,7 @@
             <p id="info-port" class="text-[10px] text-center text-pink-400 font-bold uppercase min-h-[15px]"></p>
 
             <button id="btn-valider" onclick="validerCommande()" class="w-full bg-pink-500 text-white py-5 rounded-2xl font-black uppercase shadow-lg mt-4 active:scale-95 transition-transform">
-                Confirmer ma commande
+                Commander & Envoyer à Lydie
             </button>
         </div>
     </div>
@@ -117,18 +119,25 @@
                 adresse = profilExistant.adresse;
             } else {
                 nom = document.getElementById('client-nom').value;
-                tel = document.getElementById('client-tel').value;
+                let telSaisi = document.getElementById('client-tel').value.replace(/\s/g, '');
                 adresse = document.getElementById('client-adresse').value;
-                if (!nom || !tel || !adresse) return alert("Merci de remplir tes coordonnées 🌸");
                 
-                // Sauvegarde du profil pour la prochaine fois
+                if (!nom || !telSaisi || !adresse) return alert("Merci de remplir tes coordonnées 🌸");
+
+                // Conversion format 33 (WhatsApp)
+                if(telSaisi.startsWith('0')) tel = '33' + telSaisi.substring(1);
+                else if (!telSaisi.startsWith('33')) tel = '33' + telSaisi;
+                else tel = telSaisi;
+                
+                // Sauvegarde profil
                 await _supabase.from('profils').insert([{ email: user.email.toLowerCase(), nom_prenom: nom, telephone: tel, adresse: adresse }]);
             }
 
             btn.disabled = true;
-            btn.innerText = "Enregistrement...";
+            btn.innerText = "Envoi...";
 
-            const contenuTxt = `Client: ${nom}\nTel: ${tel}\nAdresse: ${adresse}\nEmail: ${user.email}\n\nProduits:\n${panier.map(p => `- ${p.titre} (${p.prix}€)`).join('\n')}`;
+            const listeProduits = panier.map(p => `- ${p.titre} (${p.prix}€)`).join('\n');
+            const contenuTxt = `Tel: ${tel}\nEmail: ${user.email}\nAdresse: ${adresse}\n\nProduits:\n${listeProduits}`;
 
             const { error } = await _supabase.from('commande').insert([{
                 client_email: user.email.toLowerCase(),
@@ -139,12 +148,23 @@
             }]);
 
             if (!error) {
+                // MESSAGE WHATSAPP POUR LYDIE
+                const messageWhatsApp = encodeURIComponent(
+                    `Coucou Lydie ! 🌸\n` +
+                    `Nouvelle commande de *${nom}*\n` +
+                    `Total : ${totalGlobal.toFixed(2)}€\n\n` +
+                    `Détails :\n${listeProduits}\n\n` +
+                    `Lien client : https://wa.me/${tel}`
+                );
+                
                 localStorage.removeItem('panier');
-                alert("Commande validée ! Lydie va te contacter sur WhatsApp ✨");
-                window.location.href = "/mes-commandes.html";
+                window.open(`https://wa.me/33673460409?text=${messageWhatsApp}`, '_blank');
+                
+                setTimeout(() => { window.location.href = "/mes-commandes.html"; }, 1000);
             } else {
-                alert("Erreur lors de la commande.");
+                alert("Erreur réseau");
                 btn.disabled = false;
+                btn.innerText = "Réessayer";
             }
         }
 
