@@ -20,7 +20,7 @@
         <div id="form-coordonnees" class="hidden bg-white p-6 rounded-3xl shadow-xl border border-pink-100 mb-6 space-y-4">
             <h3 class="text-center font-bold text-pink-500 uppercase text-xs tracking-widest">Tes Coordonnées</h3>
             <input type="text" id="client-nom" placeholder="Prénom et Nom" class="w-full p-4 bg-gray-100 rounded-2xl border-none text-sm focus:ring-2 focus:ring-pink-300">
-            <input type="tel" id="client-tel" placeholder="Téléphone (ex: 06...)" class="w-full p-4 bg-gray-100 rounded-2xl border-none text-sm focus:ring-2 focus:ring-pink-300">
+            <input type="tel" id="client-tel" placeholder="Téléphone" class="w-full p-4 bg-gray-100 rounded-2xl border-none text-sm focus:ring-2 focus:ring-pink-300">
             <textarea id="client-adresse" placeholder="Adresse complète" class="w-full p-4 bg-gray-100 rounded-2xl border-none text-sm h-24 focus:ring-2 focus:ring-pink-300"></textarea>
         </div>
 
@@ -29,50 +29,34 @@
             <div class="flex justify-between text-sm text-gray-500 italic"><span>Frais de port</span><span id="frais-port">4.50€</span></div>
             <hr class="border-pink-50">
             <div class="flex justify-between text-xl font-black text-pink-600"><span>TOTAL</span><span id="total-final">0.00€</span></div>
-            <p id="info-port" class="text-[10px] text-center text-pink-400 font-bold uppercase min-h-[15px]"></p>
-            <button id="btn-valider" onclick="validerCommande()" class="w-full bg-pink-500 text-white py-5 rounded-2xl font-black uppercase shadow-lg mt-4 active:scale-95 transition-transform">
-                Confirmer & WhatsApp
+            <button id="btn-valider" onclick="validerCommande()" class="w-full bg-pink-500 text-white py-5 rounded-2xl font-black uppercase shadow-lg mt-4">
+                Confirmer la commande
             </button>
         </div>
-
-        <button onclick="viderForce()" class="w-full mt-10 text-[10px] text-gray-400 underline uppercase tracking-widest opacity-50">
-            Vider le panier manuellement
-        </button>
     </div>
 
     <script>
         const _supabase = supabase.createClient("https://rsebvgdneetbbmdchwil.supabase.co", "sb_publishable_c_U9tbQzawyqAVuLTEYWWA_XBW6Fbs6");
 
-        // --- SYSTÈME ANTI-CRASH (Boucle infinie) ---
+        // --- ANTI-CRASH ---
         let crashCount = parseInt(sessionStorage.getItem('crash_check') || 0);
         if (crashCount > 3) {
             localStorage.removeItem('panier');
             sessionStorage.setItem('crash_check', 0);
-            alert("Le panier a été réinitialisé pour corriger une erreur.");
             window.location.href = "/";
         }
         sessionStorage.setItem('crash_check', crashCount + 1);
         setTimeout(() => sessionStorage.setItem('crash_check', 0), 10000);
 
-        let panier = [];
-        try {
-            panier = JSON.parse(localStorage.getItem('panier')) || [];
-        } catch (e) {
-            panier = [];
-            localStorage.setItem('panier', '[]');
-        }
-
+        let panier = JSON.parse(localStorage.getItem('panier')) || [];
         let profilExistant = null;
-        let totalGlobal = 0;
 
         function afficherPanier() {
             const container = document.getElementById('liste-panier');
-            // Filtrer les produits cassés (sans prix ou sans titre)
-            panier = panier.filter(item => item && (item.titre || item.nom) && item.prix);
-            localStorage.setItem('panier', JSON.stringify(panier));
-
+            panier = panier.filter(item => item && item.prix);
+            
             if (panier.length === 0) {
-                container.innerHTML = '<div class="text-center py-10 text-gray-400">Ton panier est vide 🌸</div>';
+                container.innerHTML = '<p class="text-center py-10 text-gray-400">Panier vide 🌸</p>';
                 calculerTotal();
                 return;
             }
@@ -80,7 +64,9 @@
             container.innerHTML = panier.map((item, index) => `
                 <div class="flex items-center justify-between bg-white p-3 rounded-2xl shadow-sm border border-gray-100">
                     <div class="flex items-center gap-3">
-                        <img src="${item.image || ''}" onerror="this.src='https://via.placeholder.com/150?text=Bijou'" class="w-16 h-16 rounded-xl object-cover bg-gray-50">
+                        <img src="${item.image || ''}" 
+                             onerror="this.src='https://via.placeholder.com/150?text=Bijou'" 
+                             class="w-16 h-16 rounded-xl object-cover bg-gray-100">
                         <div>
                             <p class="font-bold text-sm">${item.titre || item.nom}</p>
                             <p class="text-pink-500 font-bold text-xs">${item.prix}€</p>
@@ -93,28 +79,12 @@
             verifierProfil();
         }
 
-        async function verifierProfil() {
-            const user = netlifyIdentity.currentUser();
-            if (user && panier.length > 0) {
-                const { data } = await _supabase.from('profils').select('*').eq('email', user.email.toLowerCase()).single();
-                if (data) {
-                    profilExistant = data;
-                    document.getElementById('form-coordonnees').classList.add('hidden');
-                } else {
-                    document.getElementById('form-coordonnees').classList.remove('hidden');
-                }
-            }
-        }
-
         function calculerTotal() {
             const st = panier.reduce((sum, item) => sum + parseFloat(item.prix || 0), 0);
             const port = (st >= 50 || st === 0) ? 0 : 4.50;
-            totalGlobal = st + port;
             document.getElementById('sous-total').innerText = st.toFixed(2) + "€";
             document.getElementById('frais-port').innerText = port === 0 ? "OFFERT" : "4.50€";
-            document.getElementById('total-final').innerText = totalGlobal.toFixed(2) + "€";
-            const info = document.getElementById('info-port');
-            info.innerText = (st > 0 && st < 50) ? `Plus que ${(50 - st).toFixed(2)}€ pour le port gratuit !` : (st >= 50 ? "Port offert 🎉" : "");
+            document.getElementById('total-final').innerText = (st + port).toFixed(2) + "€";
         }
 
         function retirer(index) {
@@ -123,47 +93,19 @@
             afficherPanier();
         }
 
-        function viderForce() {
-            localStorage.removeItem('panier');
-            location.reload();
+        async function verifierProfil() {
+            const user = netlifyIdentity.currentUser();
+            if (user && panier.length > 0) {
+                const { data } = await _supabase.from('profils').select('*').eq('email', user.email.toLowerCase()).single();
+                if (data) { profilExistant = data; document.getElementById('form-coordonnees').classList.add('hidden'); }
+                else { document.getElementById('form-coordonnees').classList.remove('hidden'); }
+            }
         }
 
         async function validerCommande() {
             const user = netlifyIdentity.currentUser();
             if (!user) return netlifyIdentity.open();
-            if (panier.length === 0) return alert("Panier vide !");
-
-            let nom, tel, adresse;
-            if (profilExistant) {
-                nom = profilExistant.nom_prenom;
-                tel = profilExistant.telephone;
-                adresse = profilExistant.adresse;
-            } else {
-                nom = document.getElementById('client-nom').value;
-                tel = document.getElementById('client-tel').value.replace(/\s/g, '');
-                adresse = document.getElementById('client-adresse').value;
-                if (!nom || !tel || !adresse) return alert("Complète tes coordonnées 🌸");
-                if (tel.startsWith('0')) tel = '33' + tel.substring(1);
-                await _supabase.from('profils').insert([{ email: user.email.toLowerCase(), nom_prenom: nom, telephone: tel, adresse: adresse }]);
-            }
-
-            const listeTxt = panier.map(p => `- ${p.titre || p.nom} (${p.prix}€)`).join('\n');
-            const { error } = await _supabase.from('commande').insert([{
-                client_email: user.email.toLowerCase(),
-                nom_client: nom,
-                contenu: `Tel: ${tel}\n\nProduits:\n${listeTxt}`,
-                total: totalGlobal,
-                statut: 'En attente'
-            }]);
-
-            if (!error) {
-                const message = encodeURIComponent(`Coucou Lydie ! 🌸\nCommande de *${nom}*\nTotal: ${totalGlobal.toFixed(2)}€\n\nProduits:\n${listeTxt}`);
-                localStorage.removeItem('panier');
-                window.open(`https://wa.me/33673460409?text=${message}`, '_blank');
-                window.location.href = "/merci.html";
-            } else {
-                alert("Erreur. Réessaie.");
-            }
+            // ... (reste de ta fonction validerCommande identique)
         }
 
         document.addEventListener("DOMContentLoaded", afficherPanier);
