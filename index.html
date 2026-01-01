@@ -53,7 +53,7 @@
             <div class="p-3">
                 <div class="zoom-container aspect-square">
                     <div id="modal-badge" class="absolute top-4 left-4 z-10"></div>
-                    <img id="modal-img" src="" alt="" class="w-full h-full object-cover">
+                    <img id="modal-img" src="" alt="" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/400?text=Image+indisponible'">
                 </div>
             </div>
             <div class="p-8">
@@ -70,10 +70,6 @@
         </div>
     </div>
 
-    <a href="https://wa.me/33673460409" target="_blank" class="fixed bottom-5 left-5 bg-[#25d366] text-white px-5 py-3 rounded-full z-[100] font-bold shadow-lg flex items-center gap-2">
-        💬 WhatsApp
-    </a>
-
     <script>
         const _supabase = supabase.createClient("https://rsebvgdneetbbmdchwil.supabase.co", "sb_publishable_c_U9tbQzawyqAVuLTEYWWA_XBW6Fbs6");
         let panier = JSON.parse(localStorage.getItem('panier')) || [];
@@ -82,7 +78,7 @@
         document.addEventListener('DOMContentLoaded', () => { 
             chargerBoutique(); 
             updateCartCount(); 
-            incrementerVisiteur(); // <--- APPEL DU COMPTEUR
+            incrementerVisiteur();
         });
 
         netlifyIdentity.on('init', user => { if (user) handleAuth(user); });
@@ -99,15 +95,10 @@
 
         async function incrementerVisiteur() {
             try {
-                // On vérifie si la visite a déjà été comptée pour cette session
                 if (!sessionStorage.getItem('visite_comptabilisee')) {
-                    // Récupérer la valeur actuelle
                     const { data: current } = await _supabase.from('statistiques').select('valeur').eq('nom', 'visiteurs').single();
-                    
                     if (current) {
-                        // Ajouter +1
                         await _supabase.from('statistiques').update({ valeur: current.valeur + 1 }).eq('nom', 'visiteurs');
-                        // Marquer comme fait pour ne pas recompter au prochain clic
                         sessionStorage.setItem('visite_comptabilisee', 'true');
                     }
                 }
@@ -134,17 +125,20 @@
                     <div class="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col h-full hover:shadow-md transition relative overflow-hidden">
                         ${p.badge ? `<div class="absolute top-4 left-4 z-10 bg-pink-500 text-white text-[8px] font-black px-2 py-1 rounded-md uppercase shadow-md">${p.badge}</div>` : ''}
                         
-                        <img src="${p.image}" onclick="openProduct(${p.id})" class="w-full h-44 object-cover rounded-xl mb-2 cursor-pointer ${isOut ? 'grayscale opacity-50' : ''}">
+                        <img src="${p.image}" onclick="openProduct(${p.id})" 
+                             onerror="this.src='https://via.placeholder.com/300?text=Image+Indisponible'"
+                             class="w-full h-44 object-cover rounded-xl mb-2 cursor-pointer ${isOut ? 'grayscale opacity-50' : ''}">
                         
                         <h4 onclick="openProduct(${p.id})" class="font-bold text-[12px] mb-1 cursor-pointer line-clamp-1">${p.titre}</h4>
                         
                         <p class="text-[9px] mb-2 ${isOut ? 'text-red-500 font-bold' : 'text-gray-400 font-medium'}">
-                            ${isOut ? '🚫 En cours de réappro...' : `En stock : ${p.stock}`}
+                            ${isOut ? '🚫 Victime de son succès' : `En stock : ${p.stock}`}
                         </p>
 
                         <p class="text-pink-600 font-black text-lg mb-3">${parseFloat(p.prix).toFixed(2)} €</p>
                         
-                        <button onclick="${isOut ? '' : `ajouterAuPanier('${p.titre.replace(/'/g, "\\'")}', ${p.prix}, '${p.image}')`}" 
+                        <button onclick="ajouterAuPanier(${p.id})" 
+                            ${isOut ? 'disabled' : ''}
                             class="w-full py-2.5 rounded-xl text-[11px] font-bold uppercase transition-all active:scale-95 ${isOut ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-pink-500 text-white shadow-lg shadow-pink-100'}">
                             ${isOut ? 'Épuisé' : 'Ajouter'}
                         </button>
@@ -173,12 +167,14 @@
             const btn = document.getElementById('modal-add-btn');
             if(isOut) {
                 btn.innerText = "Produit Épuisé";
+                btn.disabled = true;
                 btn.className = "w-full bg-gray-100 text-gray-400 py-4 rounded-2xl font-black uppercase cursor-not-allowed";
                 btn.onclick = null;
             } else {
                 btn.innerText = "Ajouter au panier";
+                btn.disabled = false;
                 btn.className = "w-full bg-pink-500 text-white py-4 rounded-2xl font-black uppercase shadow-xl shadow-pink-200 active:scale-95";
-                btn.onclick = () => { ajouterAuPanier(p.titre.replace(/'/g, "\\'"), p.prix, p.image); closeModal(); };
+                btn.onclick = () => { ajouterAuPanier(p.id); closeModal(); };
             }
 
             document.getElementById('product-modal').classList.remove('hidden');
@@ -186,16 +182,22 @@
         }
 
         function closeModal() { document.getElementById('product-modal').classList.add('hidden'); document.body.classList.remove('modal-open'); }
-        window.onclick = (e) => { if (e.target.id === 'product-modal') closeModal(); }
 
-        function ajouterAuPanier(titre, prix, image) { 
-            panier.push({ titre, prix, image }); 
+        function ajouterAuPanier(id) { 
+            const p = allProducts.find(item => item.id == id);
+            if (!p || p.stock <= 0) return alert("Désolé, ce bijou n'est plus disponible.");
+
+            panier.push({ titre: p.titre, prix: p.prix, image: p.image }); 
             localStorage.setItem('panier', JSON.stringify(panier));
             updateCartCount();
-            if (event && event.target && event.target.tagName === 'BUTTON') {
-                const b = event.target; const t = b.innerText;
-                b.innerText = "✅ AJOUTÉ"; b.classList.add('!bg-green-500');
-                setTimeout(() => { b.innerText = t; b.classList.remove('!bg-green-500'); }, 1000);
+
+            // Effet visuel sur le bouton
+            if (window.event && window.event.target && window.event.target.tagName === 'BUTTON') {
+                const b = window.event.target; 
+                const originalText = b.innerText;
+                b.innerText = "✅ AJOUTÉ"; 
+                b.classList.add('!bg-green-500');
+                setTimeout(() => { b.innerText = originalText; b.classList.remove('!bg-green-500'); }, 1000);
             }
         }
 
