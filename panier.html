@@ -20,8 +20,8 @@
         <div id="form-coordonnees" class="hidden bg-white p-6 rounded-3xl shadow-xl border border-pink-100 mb-6 space-y-4">
             <h3 class="text-center font-bold text-pink-500 uppercase text-xs tracking-widest">Tes Coordonnées</h3>
             <input type="text" id="client-nom" placeholder="Prénom et Nom" class="w-full p-4 bg-gray-100 rounded-2xl border-none text-sm focus:ring-2 focus:ring-pink-300">
-            <input type="tel" id="client-tel" placeholder="Téléphone" class="w-full p-4 bg-gray-100 rounded-2xl border-none text-sm focus:ring-2 focus:ring-pink-300">
-            <textarea id="client-adresse" placeholder="Adresse complète" class="w-full p-4 bg-gray-100 rounded-2xl border-none text-sm h-24 focus:ring-2 focus:ring-pink-300"></textarea>
+            <input type="tel" id="client-tel" placeholder="Téléphone (ex: 06...)" class="w-full p-4 bg-gray-100 rounded-2xl border-none text-sm focus:ring-2 focus:ring-pink-300">
+            <textarea id="client-adresse" placeholder="Adresse complète de livraison" class="w-full p-4 bg-gray-100 rounded-2xl border-none text-sm h-24 focus:ring-2 focus:ring-pink-300"></textarea>
         </div>
 
         <div class="bg-white p-6 rounded-3xl shadow-xl border border-pink-100 space-y-3">
@@ -43,16 +43,11 @@
     <script>
         const _supabase = supabase.createClient("https://rsebvgdneetbbmdchwil.supabase.co", "sb_publishable_c_U9tbQzawyqAVuLTEYWWA_XBW6Fbs6");
 
-        // --- SÉCURITÉ ANTI-CRASH ---
         let panier = [];
         try {
             const data = localStorage.getItem('panier');
             panier = data ? JSON.parse(data) : [];
-            if (!Array.isArray(panier)) panier = [];
-        } catch (e) {
-            localStorage.setItem('panier', '[]');
-            panier = [];
-        }
+        } catch (e) { panier = []; }
 
         let profilExistant = null;
         let totalGlobal = 0;
@@ -60,27 +55,31 @@
         function afficherPanier() {
             const container = document.getElementById('liste-panier');
             
-            // NETTOYAGE CRITIQUE : on vire tout ce qui n'est pas un objet valide
-            panier = panier.filter(item => item && typeof item === 'object' && (item.titre || item.nom) && item.prix);
-            localStorage.setItem('panier', JSON.stringify(panier));
+            // Nettoyage de sécurité
+            panier = panier.filter(item => item && item.prix);
 
             if (panier.length === 0) {
-                container.innerHTML = '<div class="text-center py-10 text-gray-400">Ton panier est vide 🌸</div>';
+                container.innerHTML = '<div class="text-center py-10 text-gray-400 font-medium">Ton panier est vide 🌸</div>';
                 calculerTotal();
                 return;
             }
 
             container.innerHTML = panier.map((item, index) => {
-                const nom = item.titre || item.nom || "Bijou";
+                const nom = item.titre || "Bijou";
                 const prix = parseFloat(item.prix).toFixed(2);
-                const image = item.image || 'https://via.placeholder.com/150?text=Bijou';
+                const image = item.image || "";
 
                 return `
                 <div class="flex items-center justify-between bg-white p-3 rounded-2xl shadow-sm border border-gray-100">
                     <div class="flex items-center gap-3">
-                        <img src="${image}" onerror="this.src='https://via.placeholder.com/150?text=Bijou'" class="w-16 h-16 rounded-xl object-cover bg-gray-50">
+                        <div class="w-16 h-16 bg-gray-50 rounded-xl overflow-hidden flex-shrink-0">
+                            <img src="${image}" 
+                                 loading="lazy"
+                                 onerror="this.style.opacity='0'" 
+                                 class="w-full h-full object-cover">
+                        </div>
                         <div>
-                            <p class="font-bold text-sm">${nom}</p>
+                            <p class="font-bold text-sm text-gray-800">${nom}</p>
                             <p class="text-pink-500 font-bold text-xs">${prix}€</p>
                         </div>
                     </div>
@@ -108,7 +107,7 @@
         }
 
         function viderForce() {
-            localStorage.setItem('panier', '[]');
+            localStorage.removeItem('panier');
             location.reload();
         }
 
@@ -123,38 +122,60 @@
                     } else {
                         document.getElementById('form-coordonnees').classList.remove('hidden');
                     }
-                } catch(e) { console.error(e); }
+                } catch(e) { 
+                    document.getElementById('form-coordonnees').classList.remove('hidden');
+                }
             }
         }
 
         async function validerCommande() {
             const user = netlifyIdentity.currentUser();
             if (!user) return netlifyIdentity.open();
-            if (panier.length === 0) return alert("Panier vide !");
+            if (panier.length === 0) return alert("Ton panier est vide !");
 
             let nom, tel, adresse;
+
             if (profilExistant) {
-                nom = profilExistant.nom_prenom; tel = profilExistant.telephone; adresse = profilExistant.adresse;
+                nom = profilExistant.nom_prenom;
+                tel = profilExistant.telephone;
+                adresse = profilExistant.adresse;
             } else {
-                nom = document.getElementById('client-nom').value;
+                nom = document.getElementById('client-nom').value.trim();
                 tel = document.getElementById('client-tel').value.replace(/\s/g, '');
-                adresse = document.getElementById('client-adresse').value;
-                if (!nom || !tel || !adresse) return alert("Complète tes coordonnées 🌸");
+                adresse = document.getElementById('client-adresse').value.trim();
+
+                if (!nom || !tel || !adresse) return alert("N'oublie pas de remplir tes coordonnées pour la livraison 🌸");
+                
+                // Formatage téléphone pour Supabase
                 if (tel.startsWith('0')) tel = '33' + tel.substring(1);
-                await _supabase.from('profils').insert([{ email: user.email.toLowerCase(), nom_prenom: nom, telephone: tel, adresse: adresse }]);
+                
+                await _supabase.from('profils').insert([{ 
+                    email: user.email.toLowerCase(), 
+                    nom_prenom: nom, 
+                    telephone: tel, 
+                    adresse: adresse 
+                }]);
             }
 
-            const listeTxt = panier.map(p => `- ${p.titre || p.nom} (${p.prix}€)`).join('\n');
+            const listeTxt = panier.map(p => `- ${p.titre} (${p.prix}€)`).join('\n');
+            
+            // Enregistrement commande
             const { error } = await _supabase.from('commande').insert([{
-                client_email: user.email.toLowerCase(), nom_client: nom, contenu: `Tel: ${tel}\n\nProduits:\n${listeTxt}`, total: totalGlobal, statut: 'En attente'
+                client_email: user.email.toLowerCase(),
+                nom_client: nom,
+                contenu: `Tel: ${tel}\nAdresse: ${adresse}\n\nProduits:\n${listeTxt}`,
+                total: totalGlobal,
+                statut: 'En attente'
             }]);
 
             if (!error) {
-                const message = encodeURIComponent(`Coucou Lydie ! 🌸\nCommande de *${nom}*\nTotal: ${totalGlobal.toFixed(2)}€\n\nProduits:\n${listeTxt}`);
-                localStorage.setItem('panier', '[]');
+                const message = encodeURIComponent(`Coucou Lydie ! 🌸\n\nCommande de *${nom}*\n📍 Adresse : ${adresse}\n📞 Tel : ${tel}\n\n*Produits :*\n${listeTxt}\n\n*TOTAL : ${totalGlobal.toFixed(2)}€*`);
+                localStorage.removeItem('panier');
                 window.open(`https://wa.me/33673460409?text=${message}`, '_blank');
-                window.location.href = "/merci.html";
-            } else { alert("Erreur technique. Réessaie."); }
+                window.location.href = "/";
+            } else {
+                alert("Petit souci technique... Réessaie ou contacte-moi sur WhatsApp !");
+            }
         }
 
         document.addEventListener("DOMContentLoaded", afficherPanier);
