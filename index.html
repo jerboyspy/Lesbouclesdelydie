@@ -145,7 +145,7 @@
                         <button onclick="ajouterAuPanier(${p.id}, event)" 
                             ${isOut ? 'disabled' : ''}
                             class="w-full py-2.5 rounded-xl text-[11px] font-bold uppercase transition-all active:scale-95 ${isOut ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-pink-500 text-white shadow-lg shadow-pink-100'}">
-                            ${isOut ? 'Ajouter' : 'Ajouter'}
+                            ${isOut ? 'Épuisé' : 'Ajouter'}
                         </button>
                     </div>`;
                 }).join('');
@@ -192,19 +192,16 @@
             const p = allProducts.find(item => item.id == id);
             if (!p || p.stock <= 0) return alert("Désolé, ce bijou n'est plus disponible.");
 
-            // SÉCURISATION MAXIMALE POUR SAFARI IPHONE
+            // MODIFICATION CRITIQUE : ON NE STOCK PLUS L'IMAGE (pour éviter le crash Safari)
             const article = {
                 titre: String(p.titre || "Bijou").trim(),
-                prix: parseFloat(p.prix) || 0,
-                // On s'assure que l'image est un texte simple et propre
-                image: p.image ? String(p.image).split('?')[0] : "" 
+                prix: parseFloat(p.prix) || 0
             };
 
             panier.push(article); 
             localStorage.setItem('panier', JSON.stringify(panier));
             updateCartCount();
 
-            // Effet visuel sur le bouton cliqué
             const btn = event ? event.target.closest('button') : null;
             if (btn) {
                 const originalText = btn.innerText;
