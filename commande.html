@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Commande - Les Boucles de Lydie</title>
+
+    <link rel="icon" type="image/png" href="favicon.png">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -61,7 +64,7 @@
             const btn = document.getElementById('btn-submit');
             
             const nom = document.getElementById('nom').value;
-            let telSaisi = document.getElementById('tel').value.replace(/\s/g, ''); 
+            let telSaisi = document.getElementById('tel').value.replace(/\s/g, '').replace(/\./g, ''); 
             
             // --- CONVERSION FORMAT 33 ---
             if(telSaisi.startsWith('0')) {
@@ -74,7 +77,6 @@
             const adresse = document.getElementById('adresse').value;
             const listeProduits = panier.map(p => `- ${p.titre} (${p.prix}€)`).join('\n');
 
-            // Le format "Tel: 33..." est crucial pour que l'admin WhatsApp de Lydie fonctionne
             const blocContenu = `Tel: ${telSaisi}\nEmail: ${email}\nAdresse: ${adresse}\n\nProduits:\n${listeProduits}`;
 
             btn.innerText = "Envoi en cours...";
@@ -82,12 +84,13 @@
 
             try {
                 // 1. Enregistrement Supabase
-                const { data, error } = await _supabase.from('commande').insert([{
-                    client_email: nom, 
+                const { error } = await _supabase.from('commande').insert([{
+                    client_email: email.toLowerCase(), 
+                    nom_client: nom,
                     contenu: blocContenu,
                     total: parseFloat(totalInit),
                     statut: 'En attente'
-                }]).select();
+                }]);
 
                 if(error) throw error;
 
@@ -100,16 +103,11 @@
                     `Lien client : https://wa.me/${telSaisi}`
                 );
                 
-                // Ton numéro Lydie (Format 33)
                 const urlWhatsAppLydie = `https://wa.me/33673460409?text=${messageWhatsApp}`;
 
-                // On vide le panier
                 localStorage.removeItem('panier');
-
-                // 3. Ouverture WhatsApp et Redirection vers Merci
                 window.open(urlWhatsAppLydie, '_blank');
                 
-                // On attend 1 seconde pour être sûr que WhatsApp a bien tenté de s'ouvrir avant de changer de page
                 setTimeout(() => {
                     window.location.href = "/merci.html";
                 }, 1000);
