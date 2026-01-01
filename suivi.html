@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Suivi Commande - Les Boucles de Lydie</title>
+
+    <link rel="icon" type="image/png" href="favicon.png">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -19,7 +22,7 @@
             </div>
             
             <div id="zone-alerte" class="hidden p-4 rounded-2xl text-sm mb-6 font-medium">
-                </div>
+            </div>
 
             <div class="relative py-4">
                 <p id="message-statut" class="text-gray-600 italic text-sm">Nous vérifions vos articles...</p>
@@ -76,13 +79,17 @@
                     badge.className = "inline-block px-4 py-2 rounded-full font-black uppercase text-[10px] mb-6 bg-purple-100 text-purple-600";
                     message.innerText = "Votre colis est en route !";
                     anim.innerHTML = "🚚";
-                    // Petit effet visuel pour le camion
                     anim.classList.add('animate-bounce');
+                }
+                else if(data.statut === 'Clôturée') {
+                    badge.className = "inline-block px-4 py-2 rounded-full font-black uppercase text-[10px] mb-6 bg-gray-100 text-gray-400";
+                    message.innerText = "Commande terminée. Merci de votre confiance !";
+                    anim.innerHTML = "🌸";
+                    anim.classList.remove('animate-bounce');
                 }
             }
         }
 
-        // Vérification toutes les 5 secondes pour un suivi "Live"
         setInterval(rafraichir, 5000);
         rafraichir();
     </script>
