@@ -20,8 +20,8 @@
         <div id="form-coordonnees" class="hidden bg-white p-6 rounded-3xl shadow-xl border border-pink-100 mb-6 space-y-4">
             <h3 class="text-center font-bold text-pink-500 uppercase text-xs tracking-widest">Tes Coordonnées</h3>
             <input type="text" id="client-nom" placeholder="Prénom et Nom" class="w-full p-4 bg-gray-100 rounded-2xl border-none text-sm focus:ring-2 focus:ring-pink-300">
-            <input type="tel" id="client-tel" placeholder="Téléphone (ex: 06...)" class="w-full p-4 bg-gray-100 rounded-2xl border-none text-sm focus:ring-2 focus:ring-pink-300">
-            <textarea id="client-adresse" placeholder="Adresse complète de livraison" class="w-full p-4 bg-gray-100 rounded-2xl border-none text-sm h-24 focus:ring-2 focus:ring-pink-300"></textarea>
+            <input type="tel" id="client-tel" placeholder="Téléphone" class="w-full p-4 bg-gray-100 rounded-2xl border-none text-sm focus:ring-2 focus:ring-pink-300">
+            <textarea id="client-adresse" placeholder="Adresse complète" class="w-full p-4 bg-gray-100 rounded-2xl border-none text-sm h-24 focus:ring-2 focus:ring-pink-300"></textarea>
         </div>
 
         <div class="bg-white p-6 rounded-3xl shadow-xl border border-pink-100 space-y-3">
@@ -36,46 +36,51 @@
         </div>
 
         <button onclick="viderForce()" class="w-full mt-10 text-[10px] text-gray-400 underline uppercase tracking-widest opacity-50">
-            Vider le panier (Nettoyage)
+            Vider le panier (Réinitialiser)
         </button>
     </div>
 
     <script>
         const _supabase = supabase.createClient("https://rsebvgdneetbbmdchwil.supabase.co", "sb_publishable_c_U9tbQzawyqAVuLTEYWWA_XBW6Fbs6");
-
         let panier = [];
-        try {
-            const data = localStorage.getItem('panier');
-            panier = data ? JSON.parse(data) : [];
-        } catch (e) { panier = []; }
-
         let profilExistant = null;
         let totalGlobal = 0;
 
+        // Chargement sécurisé
+        function chargerDonnees() {
+            try {
+                const data = localStorage.getItem('panier');
+                panier = data ? JSON.parse(data) : [];
+                // Nettoyage immédiat si données corrompues (anciennes images)
+                if (data && data.includes('data:image')) {
+                    viderForce();
+                }
+            } catch (e) {
+                panier = [];
+            }
+            afficherPanier();
+        }
+
         function afficherPanier() {
             const container = document.getElementById('liste-panier');
-            panier = panier.filter(item => item && item.prix);
-
             if (panier.length === 0) {
-                container.innerHTML = '<div class="text-center py-10 text-gray-400 font-medium">Ton panier est vide 🌸</div>';
+                container.innerHTML = '<div class="text-center py-10 text-gray-400">Ton panier est vide 🌸</div>';
                 calculerTotal();
                 return;
             }
 
-            // Version texte uniquement : très léger pour le téléphone
             container.innerHTML = panier.map((item, index) => `
                 <div class="flex items-center justify-between bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
                     <div class="flex items-center gap-4">
-                        <div class="bg-pink-50 text-pink-400 w-10 h-10 rounded-full flex items-center justify-center font-bold">
-                            ${index + 1}
-                        </div>
+                        <div class="bg-pink-50 text-pink-400 w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs">${index + 1}</div>
                         <div>
                             <p class="font-bold text-sm text-gray-800">${item.titre || "Bijou"}</p>
-                            <p class="text-pink-500 font-bold text-xs">${parseFloat(item.prix).toFixed(2)}€</p>
+                            <p class="text-pink-500 font-bold text-xs">${parseFloat(item.prix || 0).toFixed(2)}€</p>
                         </div>
                     </div>
-                    <button onclick="retirer(${index})" class="bg-gray-50 text-gray-400 p-2 rounded-xl text-lg">🗑️</button>
-                </div>`).join('');
+                    <button onclick="retirer(${index})" class="text-gray-300 p-2 text-xl">🗑️</button>
+                </div>
+            `).join('');
             
             calculerTotal();
             verifierProfil();
@@ -98,21 +103,17 @@
 
         function viderForce() {
             localStorage.removeItem('panier');
-            location.reload();
+            window.location.reload();
         }
 
         async function verifierProfil() {
             const user = netlifyIdentity.currentUser();
             if (user && panier.length > 0) {
-                try {
-                    const { data } = await _supabase.from('profils').select('*').eq('email', user.email.toLowerCase()).single();
-                    if (data) {
-                        profilExistant = data;
-                        document.getElementById('form-coordonnees').classList.add('hidden');
-                    } else {
-                        document.getElementById('form-coordonnees').classList.remove('hidden');
-                    }
-                } catch(e) { 
+                const { data } = await _supabase.from('profils').select('*').eq('email', user.email.toLowerCase()).single();
+                if (data) {
+                    profilExistant = data;
+                    document.getElementById('form-coordonnees').classList.add('hidden');
+                } else {
                     document.getElementById('form-coordonnees').classList.remove('hidden');
                 }
             }
@@ -121,27 +122,21 @@
         async function validerCommande() {
             const user = netlifyIdentity.currentUser();
             if (!user) return netlifyIdentity.open();
-            if (panier.length === 0) return alert("Ton panier est vide !");
+            if (panier.length === 0) return;
 
             let nom, tel, adresse;
-
             if (profilExistant) {
                 nom = profilExistant.nom_prenom;
                 tel = profilExistant.telephone;
                 adresse = profilExistant.adresse;
             } else {
                 nom = document.getElementById('client-nom').value.trim();
-                tel = document.getElementById('client-tel').value.replace(/\s/g, '');
+                tel = document.getElementById('client-tel').value.trim();
                 adresse = document.getElementById('client-adresse').value.trim();
-
-                if (!nom || !tel || !adresse) return alert("Complète tes coordonnées pour la livraison 🌸");
-                if (tel.startsWith('0')) tel = '33' + tel.substring(1);
-                
-                await _supabase.from('profils').insert([{ email: user.email.toLowerCase(), nom_prenom: nom, telephone: tel, adresse: adresse }]);
+                if (!nom || !tel || !adresse) return alert("Complète tes coordonnées 🌸");
             }
 
             const listeTxt = panier.map(p => `- ${p.titre} (${p.prix}€)`).join('\n');
-            
             const { error } = await _supabase.from('commande').insert([{
                 client_email: user.email.toLowerCase(),
                 nom_client: nom,
@@ -151,18 +146,15 @@
             }]);
 
             if (!error) {
-                const message = encodeURIComponent(`Coucou Lydie ! 🌸\n\nCommande de *${nom}*\n📍 Adresse : ${adresse}\n📞 Tel : ${tel}\n\n*Produits :*\n${listeTxt}\n\n*TOTAL : ${totalGlobal.toFixed(2)}€*`);
+                const message = encodeURIComponent(`Coucou Lydie ! 🌸\n\nCommande de *${nom}*\n*Produits :*\n${listeTxt}\n\n*TOTAL : ${totalGlobal.toFixed(2)}€*`);
                 localStorage.removeItem('panier');
                 window.open(`https://wa.me/33673460409?text=${message}`, '_blank');
                 window.location.href = "/";
-            } else {
-                alert("Erreur de connexion, réessaie.");
             }
         }
 
-        document.addEventListener("DOMContentLoaded", afficherPanier);
+        document.addEventListener("DOMContentLoaded", chargerDonnees);
         netlifyIdentity.on('init', user => { if(user) verifierProfil(); });
-        netlifyIdentity.on('login', () => location.reload());
     </script>
 </body>
 </html>
