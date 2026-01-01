@@ -34,7 +34,20 @@
                     <input type="number" id="stock" class="w-full p-4 bg-gray-100 rounded-2xl border-none focus:ring-2 focus:ring-pink-300" placeholder="Stock" required>
                 </div>
 
-                <input type="text" id="badge" class="w-full p-4 bg-gray-100 rounded-2xl border-none focus:ring-2 focus:ring-pink-300 text-sm" placeholder="Badge (ex: NEW, TOP, PROMO) - Optionnel">
+                <div class="space-y-2">
+                    <label class="text-[10px] font-bold uppercase text-gray-400 ml-2">Badge</label>
+                    <div class="flex gap-2">
+                        <select id="badge-select" onchange="handleBadgeChoice(this.value)" class="flex-1 p-4 bg-gray-100 rounded-2xl border-none focus:ring-2 focus:ring-pink-300 text-sm outline-none">
+                            <option value="">Aucun badge</option>
+                            <option value="NEW">NEW</option>
+                            <option value="TOP">TOP</option>
+                            <option value="PROMO">PROMO</option>
+                            <option value="ÉPUISÉ">ÉPUISÉ</option>
+                            <option value="custom">✍️ Perso...</option>
+                        </select>
+                        <input type="text" id="badge-custom" class="hidden flex-1 p-4 bg-pink-50 rounded-2xl border-none focus:ring-2 focus:ring-pink-300 text-sm font-bold placeholder:font-normal" placeholder="Texte du badge">
+                    </div>
+                </div>
 
                 <div class="bg-pink-50 p-5 rounded-2xl border-2 border-dashed border-pink-200">
                     <p class="text-[10px] text-pink-400 font-bold mb-2 uppercase text-center">Photo du bijou</p>
@@ -75,6 +88,18 @@
 
         netlifyIdentity.on('logout', () => window.location.href = "/");
 
+        // Gestion de l'affichage du champ personnalisé
+        function handleBadgeChoice(val) {
+            const customInput = document.getElementById('badge-custom');
+            if (val === 'custom') {
+                customInput.classList.remove('hidden');
+                customInput.focus();
+            } else {
+                customInput.classList.add('hidden');
+                customInput.value = ''; 
+            }
+        }
+
         async function compressImage(file) {
             return new Promise((resolve) => {
                 const reader = new FileReader();
@@ -102,6 +127,11 @@
             const file = document.getElementById('fileInput').files[0];
             if(!file) return alert("Photo manquante !");
 
+            // Calcul de la valeur finale du badge
+            const selectVal = document.getElementById('badge-select').value;
+            const customVal = document.getElementById('badge-custom').value;
+            const finalBadge = (selectVal === 'custom') ? customVal : selectVal;
+
             btn.disabled = true;
             btn.innerText = "⏳ ENREGISTREMENT...";
 
@@ -123,13 +153,14 @@
                     description: document.getElementById('description').value,
                     prix: parseFloat(document.getElementById('prix').value),
                     stock: parseInt(document.getElementById('stock').value),
-                    badge: document.getElementById('badge').value.toUpperCase(),
+                    badge: finalBadge.toUpperCase(),
                     image: result.url
                 }]);
 
                 if (error) throw error;
 
                 document.getElementById('produit-form').reset();
+                document.getElementById('badge-custom').classList.add('hidden');
                 document.getElementById('finish-area').classList.remove('hidden');
                 await chargerListe();
                 btn.disabled = false;
@@ -154,18 +185,20 @@
                     <div class="p-4 bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col gap-3">
                         <div class="flex items-center justify-between">
                             <div class="flex items-center gap-3">
-                                <img src="${p.image}" class="w-14 h-14 rounded-xl object-cover">
+                                <div class="relative">
+                                    <img src="${p.image}" class="w-14 h-14 rounded-xl object-cover">
+                                    ${p.badge ? `<span class="absolute -top-1 -left-1 bg-pink-500 text-white text-[7px] px-1 rounded font-black">${p.badge}</span>` : ''}
+                                </div>
                                 <div>
                                     <p class="text-sm font-bold leading-tight">${p.titre}</p>
                                     <p class="text-[11px] font-black ${p.stock <= 0 ? 'text-red-500' : 'text-gray-400'}">
                                         Stock: ${p.stock} ${p.stock <= 0 ? '(RUPTURE)' : ''}
                                     </p>
-                                    ${p.badge ? `<span class="text-[9px] bg-yellow-100 text-yellow-600 px-2 py-0.5 rounded font-bold uppercase">${p.badge}</span>` : ''}
                                 </div>
                             </div>
                             <div class="flex flex-col gap-2">
-                                <button onclick="ouvrirModif(${p.id})" class="bg-blue-50 text-blue-600 p-2 rounded-lg text-sm font-bold hover:bg-blue-100 transition">✏️ Modifier</button>
-                                <button onclick="supprimer(${p.id})" class="bg-red-50 text-red-400 p-2 rounded-lg text-sm font-bold hover:bg-red-100 transition">🗑️</button>
+                                <button onclick="ouvrirModif(${p.id})" class="bg-blue-50 text-blue-600 p-2 rounded-lg text-xs font-bold hover:bg-blue-100 transition">✏️ Modifier</button>
+                                <button onclick="supprimer(${p.id})" class="bg-red-50 text-red-400 p-2 rounded-lg text-xs font-bold hover:bg-red-100 transition">🗑️</button>
                             </div>
                         </div>
                     </div>
@@ -181,7 +214,7 @@
             if (nStock === null) return;
 
             const nDesc = prompt("Nouvelle description :", p.description || "");
-            const nBadge = prompt("Badge (NEW, TOP, PROMO...) :", p.badge || "");
+            const nBadge = prompt("Badge (Laissez vide pour aucun, ou tapez : NEW, TOP, PROMO, ÉPUISÉ...) :", p.badge || "");
 
             try {
                 const { error } = await _supabase.from('produits')
