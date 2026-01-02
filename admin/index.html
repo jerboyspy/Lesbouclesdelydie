@@ -164,9 +164,13 @@
                             <div>
                                 <p class="text-[10px] font-bold text-pink-400 uppercase tracking-widest">Réf: #${p.id}</p>
                                 <p class="text-sm font-bold text-gray-800 leading-tight">${p.titre}</p>
-                                <p class="text-[11px] font-black ${p.stock <= 0 ? 'text-red-500' : 'text-gray-400'}">
-                                    Stock actuel: ${p.stock}
-                                </p>
+                                <div class="flex gap-2 items-center">
+                                    <p class="text-[11px] font-black ${p.stock <= 0 ? 'text-red-500' : 'text-gray-400'}">
+                                        Stock: ${p.stock}
+                                    </p>
+                                    <span class="text-gray-300 text-[9px]">|</span>
+                                    <p class="text-[11px] font-bold text-pink-500">${parseFloat(p.prix).toFixed(2)}€</p>
+                                </div>
                             </div>
                         </div>
                         <div class="flex gap-3">
@@ -185,12 +189,36 @@
             }
         }
 
+        // FONCTION DE MODIFICATION MISE À JOUR (NOM + STOCK + PRIX)
         async function ouvrirModif(id) {
             const p = allProducts.find(item => item.id === id);
-            const nStock = prompt("Nouveau stock pour " + p.titre + " :", p.stock);
-            if (nStock !== null) {
-                await _supabase.from('produits').update({ stock: parseInt(nStock) }).eq('id', id);
+            
+            // 1. Modifier le Nom
+            const nTitre = prompt("Modifier le nom du bijou :", p.titre);
+            if (nTitre === null) return;
+
+            // 2. Modifier le Prix
+            const nPrix = prompt("Modifier le prix (€) :", p.prix);
+            if (nPrix === null) return;
+
+            // 3. Modifier le Stock
+            const nStock = prompt("Nouveau stock pour " + nTitre + " :", p.stock);
+            if (nStock === null) return;
+
+            try {
+                const { error } = await _supabase
+                    .from('produits')
+                    .update({ 
+                        titre: nTitre.trim(),
+                        prix: parseFloat(nPrix),
+                        stock: parseInt(nStock) 
+                    })
+                    .eq('id', id);
+
+                if (error) throw error;
                 chargerListe();
+            } catch (err) {
+                alert("Erreur : " + err.message);
             }
         }
     </script>
