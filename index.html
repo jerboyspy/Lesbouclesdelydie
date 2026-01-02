@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Les Boucles de Lydie</title>
-
     <link rel="icon" type="image/png" href="favicon.png">
-
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
@@ -48,30 +46,41 @@
         </div>
     </main>
 
-    <div id="product-modal" class="fixed inset-0 z-[100] hidden bg-black/70 backdrop-blur-sm flex items-end md:items-center justify-center p-0 md:p-4">
-        <div class="bg-white w-full max-w-lg rounded-t-[40px] md:rounded-[40px] overflow-hidden shadow-2xl relative animate-slide-up">
-            <button onclick="closeModal()" class="absolute top-6 right-6 z-10 bg-white/90 backdrop-blur-md p-2 rounded-full shadow-lg text-gray-800">
+    <div id="product-modal" class="fixed inset-0 z-[100] hidden bg-black/70 backdrop-blur-sm flex items-end md:items-center justify-center">
+        <div class="absolute inset-0" onclick="closeModal()"></div>
+        
+        <div class="bg-white w-full max-w-lg rounded-t-[40px] md:rounded-[40px] shadow-2xl relative animate-slide-up flex flex-col max-h-[90vh]">
+            
+            <button onclick="closeModal()" class="absolute top-6 right-6 z-[110] bg-white/90 backdrop-blur-md p-2 rounded-full shadow-lg text-gray-800 border border-gray-100">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
             </button>
-            <div class="p-3">
-                <div class="zoom-container aspect-square">
+
+            <div class="overflow-y-auto p-4 md:p-6 w-full">
+                <div class="zoom-container aspect-square mb-6">
                     <div id="modal-badge" class="absolute top-4 left-4 z-10"></div>
-                    <img id="modal-img" src="" alt="" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/400?text=Image+indisponible'">
+                    <img id="modal-img" src="" alt="" class="w-full h-full object-cover">
                 </div>
-            </div>
-            <div class="p-8">
-                <div class="flex justify-between items-start mb-1">
-                    <h2 id="modal-title" class="text-2xl font-black text-gray-800"></h2>
-                    <span id="modal-ref" class="text-[10px] bg-gray-100 text-gray-400 px-2 py-1 rounded-md font-bold mt-1"></span>
+
+                <div class="px-2">
+                    <div class="flex justify-between items-start mb-1">
+                        <h2 id="modal-title" class="text-2xl font-black text-gray-800 pr-10"></h2>
+                        <span id="modal-ref" class="text-[10px] bg-gray-100 text-gray-400 px-2 py-1 rounded-md font-bold shrink-0 mt-1"></span>
+                    </div>
+
+                    <div class="flex justify-between items-center mb-4">
+                        <p id="modal-price" class="text-2xl font-black text-pink-500"></p>
+                        <p id="modal-stock-info" class="text-[10px] font-bold uppercase"></p>
+                    </div>
+
+                    <div class="bg-gray-50 p-5 rounded-3xl mb-8">
+                        <h4 class="text-[10px] font-black uppercase text-gray-300 mb-2 tracking-widest">Détails de la création</h4>
+                        <p id="modal-desc" class="text-gray-600 text-sm leading-relaxed whitespace-pre-line"></p>
+                    </div>
+
+                    <button id="modal-add-btn" class="w-full py-5 rounded-2xl font-black uppercase tracking-widest transition-all mb-4">
+                        Ajouter au panier
+                    </button>
                 </div>
-                <div class="flex justify-between items-center mb-4">
-                    <p id="modal-price" class="text-xl font-bold text-pink-500"></p>
-                    <p id="modal-stock-info" class="text-[10px] font-bold uppercase"></p>
-                </div>
-                <p id="modal-desc" class="text-gray-500 text-sm leading-relaxed mb-8 italic"></p>
-                <button id="modal-add-btn" class="w-full py-4 rounded-2xl font-black uppercase tracking-widest transition-all">
-                    Ajouter au panier
-                </button>
             </div>
         </div>
     </div>
@@ -140,8 +149,9 @@
                              onerror="this.src='https://via.placeholder.com/300?text=Image+Indisponible'"
                              class="w-full h-44 object-cover rounded-xl mb-2 cursor-pointer ${isOut ? 'grayscale opacity-50' : ''}">
                         
-                        <h4 onclick="openProduct(${p.id})" class="font-bold text-[12px] mb-1 cursor-pointer line-clamp-1">
-                            ${p.titre} <span class="text-[9px] text-pink-300 font-medium">#${p.id}</span>
+                        <h4 onclick="openProduct(${p.id})" class="font-bold text-[12px] mb-1 cursor-pointer line-clamp-1 pr-10 relative">
+                            ${p.titre}
+                            <span class="absolute right-0 top-0 text-[8px] text-gray-300 font-bold uppercase">#${p.id}</span>
                         </h4>
                         
                         <p class="text-[9px] mb-2 ${isOut ? 'text-red-500 font-bold' : 'text-gray-400 font-medium'}">
@@ -152,7 +162,7 @@
                         
                         <button onclick="ajouterAuPanier(${p.id}, event)" 
                             ${isOut ? 'disabled' : ''}
-                            class="w-full py-2.5 rounded-xl text-[11px] font-bold uppercase transition-all active:scale-95 ${isOut ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-pink-500 text-white shadow-lg shadow-pink-100'}">
+                            class="mt-auto w-full py-2.5 rounded-xl text-[11px] font-bold uppercase transition-all active:scale-95 ${isOut ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-pink-500 text-white shadow-lg shadow-pink-100'}">
                             ${isOut ? 'Épuisé' : 'Ajouter'}
                         </button>
                     </div>`;
@@ -167,9 +177,9 @@
 
             document.getElementById('modal-img').src = p.image;
             document.getElementById('modal-title').innerText = p.titre;
-            document.getElementById('modal-ref').innerText = `Réf: #${p.id}`; // Affichage ID dans modal
+            document.getElementById('modal-ref').innerText = `Réf: #${p.id}`;
             document.getElementById('modal-price').innerText = `${parseFloat(p.prix).toFixed(2)} €`;
-            document.getElementById('modal-desc').innerText = p.description || "Création artisanale unique. ✨";
+            document.getElementById('modal-desc').innerText = p.description || "Création artisanale unique réalisée avec passion. ✨";
             
             const mBadge = document.getElementById('modal-badge');
             mBadge.innerHTML = p.badge ? `<span class="bg-pink-500 text-white text-[10px] font-black px-3 py-1.5 rounded-lg uppercase shadow-lg">${p.badge}</span>` : '';
@@ -195,20 +205,16 @@
             document.body.classList.add('modal-open');
         }
 
-        function closeModal() { document.getElementById('product-modal').classList.add('hidden'); document.body.classList.remove('modal-open'); }
+        function closeModal() { 
+            document.getElementById('product-modal').classList.add('hidden'); 
+            document.body.classList.remove('modal-open'); 
+        }
 
         function ajouterAuPanier(id, event) { 
             const p = allProducts.find(item => item.id == id);
             if (!p || p.stock <= 0) return alert("Désolé, ce bijou n'est plus disponible.");
 
-            // AJOUT DE L'ID DANS L'OBJET PANIER POUR LES COMMANDES GROUPÉES
-            const article = {
-                id: p.id,
-                titre: String(p.titre || "Bijou").trim(),
-                prix: parseFloat(p.prix) || 0
-            };
-
-            panier.push(article); 
+            panier.push({ id: p.id, titre: String(p.titre).trim(), prix: parseFloat(p.prix) }); 
             localStorage.setItem('panier', JSON.stringify(panier));
             updateCartCount();
 
