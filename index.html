@@ -60,7 +60,10 @@
                 </div>
             </div>
             <div class="p-8">
-                <h2 id="modal-title" class="text-2xl font-black text-gray-800 mb-1"></h2>
+                <div class="flex justify-between items-start mb-1">
+                    <h2 id="modal-title" class="text-2xl font-black text-gray-800"></h2>
+                    <span id="modal-ref" class="text-[10px] bg-gray-100 text-gray-400 px-2 py-1 rounded-md font-bold mt-1"></span>
+                </div>
                 <div class="flex justify-between items-center mb-4">
                     <p id="modal-price" class="text-xl font-bold text-pink-500"></p>
                     <p id="modal-stock-info" class="text-[10px] font-bold uppercase"></p>
@@ -104,18 +107,9 @@
         async function incrementerVisiteur() {
             try {
                 if (!sessionStorage.getItem('visite_comptabilisee')) {
-                    const { data: current } = await _supabase
-                        .from('statistiques')
-                        .select('valeur')
-                        .eq('nom', 'visiteurs')
-                        .maybeSingle();
-                    
+                    const { data: current } = await _supabase.from('statistiques').select('valeur').eq('nom', 'visiteurs').maybeSingle();
                     if (current) {
-                        await _supabase
-                            .from('statistiques')
-                            .update({ valeur: parseInt(current.valeur) + 1 })
-                            .eq('nom', 'visiteurs');
-                        
+                        await _supabase.from('statistiques').update({ valeur: parseInt(current.valeur) + 1 }).eq('nom', 'visiteurs');
                         sessionStorage.setItem('visite_comptabilisee', 'true');
                     }
                 }
@@ -146,7 +140,9 @@
                              onerror="this.src='https://via.placeholder.com/300?text=Image+Indisponible'"
                              class="w-full h-44 object-cover rounded-xl mb-2 cursor-pointer ${isOut ? 'grayscale opacity-50' : ''}">
                         
-                        <h4 onclick="openProduct(${p.id})" class="font-bold text-[12px] mb-1 cursor-pointer line-clamp-1">${p.titre}</h4>
+                        <h4 onclick="openProduct(${p.id})" class="font-bold text-[12px] mb-1 cursor-pointer line-clamp-1">
+                            ${p.titre} <span class="text-[9px] text-pink-300 font-medium">#${p.id}</span>
+                        </h4>
                         
                         <p class="text-[9px] mb-2 ${isOut ? 'text-red-500 font-bold' : 'text-gray-400 font-medium'}">
                             ${isOut ? '🚫 Victime de son succès' : `En stock : ${p.stock}`}
@@ -171,6 +167,7 @@
 
             document.getElementById('modal-img').src = p.image;
             document.getElementById('modal-title').innerText = p.titre;
+            document.getElementById('modal-ref').innerText = `Réf: #${p.id}`; // Affichage ID dans modal
             document.getElementById('modal-price').innerText = `${parseFloat(p.prix).toFixed(2)} €`;
             document.getElementById('modal-desc').innerText = p.description || "Création artisanale unique. ✨";
             
@@ -204,7 +201,9 @@
             const p = allProducts.find(item => item.id == id);
             if (!p || p.stock <= 0) return alert("Désolé, ce bijou n'est plus disponible.");
 
+            // AJOUT DE L'ID DANS L'OBJET PANIER POUR LES COMMANDES GROUPÉES
             const article = {
+                id: p.id,
                 titre: String(p.titre || "Bijou").trim(),
                 prix: parseFloat(p.prix) || 0
             };
