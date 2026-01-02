@@ -22,7 +22,7 @@
             <h3 class="text-center font-bold text-pink-500 uppercase text-xs tracking-widest">Tes Coordonnées</h3>
             <input type="text" id="client-nom" placeholder="Prénom et Nom" class="w-full p-4 bg-gray-100 rounded-2xl border-none text-sm focus:ring-2 focus:ring-pink-300">
             <input type="tel" id="client-tel" placeholder="Téléphone (ex: 06...)" class="w-full p-4 bg-gray-100 rounded-2xl border-none text-sm focus:ring-2 focus:ring-pink-300">
-            <textarea id="client-adresse" placeholder="Adresse complète" class="w-full p-4 bg-gray-100 rounded-2xl border-none text-sm h-24 focus:ring-2 focus:ring-pink-300 text-gray-600"></textarea>
+            <textarea id="client-adresse" placeholder="Adresse complète (Rue, Code Postal, Ville)" class="w-full p-4 bg-gray-100 rounded-2xl border-none text-sm h-24 focus:ring-2 focus:ring-pink-300 text-gray-600"></textarea>
         </div>
 
         <div class="bg-white p-6 rounded-3xl shadow-xl border border-pink-100 space-y-3">
@@ -48,14 +48,14 @@
                 const data = localStorage.getItem('panier');
                 panier = data ? JSON.parse(data) : [];
                 
-                // Récupération des images manquantes si besoin (Supabase)
-                if (panier.length > 0 && !panier[0].image) {
+                // Récupération automatique des images depuis Supabase si absentes
+                if (panier.length > 0) {
                    const ids = panier.map(p => p.id);
-                   const { data: prods } = await _supabase.from('produits').select('id, image').in('id', ids);
+                   const { data: prods } = await _supabase.from('produits').select('id, image, titre, prix').in('id', ids);
                    if (prods) {
                        panier = panier.map(item => {
                            const extra = prods.find(p => p.id === item.id);
-                           return extra ? { ...item, image: extra.image } : item;
+                           return extra ? { ...item, image: extra.image, titre: extra.titre, prix: extra.prix } : item;
                        });
                    }
                 }
@@ -99,8 +99,8 @@
                         <img src="${item.image || 'https://via.placeholder.com/100'}" class="w-14 h-14 rounded-2xl object-cover shadow-sm">
                         <div>
                             <p class="font-black text-xs text-gray-800 leading-tight">${item.titre}</p>
-                            <p class="text-[10px] text-pink-300 font-bold uppercase mb-1">Réf: #${item.id}</p>
-                            <p class="text-pink-500 font-black text-sm">${parseFloat(item.prix).toFixed(2)}€</p>
+                            <p class="text-[9px] text-pink-400 font-bold uppercase mt-0.5">Réf: #${item.id}</p>
+                            <p class="text-pink-600 font-black text-sm mt-1">${parseFloat(item.prix).toFixed(2)}€</p>
                         </div>
                     </div>
                     <button onclick="supprimerArticle(${index})" class="bg-gray-50 text-gray-300 hover:text-red-500 p-2 rounded-xl transition-colors">
@@ -126,18 +126,20 @@
             const nom = document.getElementById('client-nom').value.trim();
             const adresse = document.getElementById('client-adresse').value.trim();
             let telRaw = document.getElementById('client-tel').value.replace(/\s+/g, '').replace(/\./g, '');
-            if (telRaw.startsWith('0')) telRaw = '33' + telRaw.substring(1);
             
             if (!nom || telRaw.length < 10 || !adresse) return alert("⚠️ Merci de vérifier tes coordonnées.");
 
             const btn = document.getElementById('btn-valider');
+            if (btn.disabled) return; // Évite les doubles clics
+
             btn.disabled = true;
             btn.innerText = "⏳ ENREGISTREMENT...";
 
-            // CRUCIAL : On inclut (#ID) pour l'administration
-            const listeTxt = panier.map(p => `- ${p.titre} (#${p.id}) ${p.prix}€`).join('\n');
+            // Formatage de la liste avec Références pour Lydie
+            const listeTxt = panier.map(p => `- ${p.titre} (Réf: #${p.id}) - ${parseFloat(p.prix).toFixed(2)}€`).join('\n');
 
             try {
+                // Mise à jour du profil client
                 await _supabase.from('profils').upsert({
                     email: user.email.toLowerCase(),
                     nom_prenom: nom,
@@ -145,6 +147,7 @@
                     telephone: telRaw
                 }, { onConflict: 'email' });
 
+                // Insertion de la commande
                 const { error } = await _supabase.from('commande').insert([{
                     client_email: user.email.toLowerCase(),
                     nom_client: nom,
@@ -156,10 +159,16 @@
 
                 if (error) throw error;
 
-                const messageWA = encodeURIComponent(`Coucou Lydie ! 🌸\nJe souhaite commander :\n${listeTxt}\n\n*TOTAL : ${totalGlobal.toFixed(2)}€*\n\nMes coordonnées :\n${nom}\n${telRaw}\n${adresse}`);
+                // Message WhatsApp formaté pour la lecture facile
+                const messageWA = encodeURIComponent(`Coucou Lydie ! 🌸\nJe souhaite commander :\n\n${listeTxt}\n\n*TOTAL : ${totalGlobal.toFixed(2)}€*\n\nMes coordonnées :\nNom : ${nom}\nTél : ${telRaw}\nAdresse : ${adresse}`);
+                
                 localStorage.removeItem('panier');
                 window.open(`https://wa.me/33673460409?text=${messageWA}`, '_blank');
-                window.location.href = "merci.html";
+                
+                setTimeout(() => {
+                    window.location.href = "merci.html";
+                }, 500);
+
             } catch (err) {
                 alert("Erreur : " + err.message);
                 btn.disabled = false;
