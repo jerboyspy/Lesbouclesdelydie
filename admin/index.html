@@ -3,10 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin - Les Boucles de Lydie</title>
-
+    <title>Stock - Les Boucles de Lydie</title>
     <link rel="icon" type="image/png" href="/favicon.png">
-
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
@@ -18,7 +16,7 @@
         <a href="/" class="flex items-center gap-2 bg-white px-4 py-2 rounded-2xl shadow-sm border border-gray-100 text-sm font-bold text-gray-600 hover:bg-pink-50 transition">
             🏠 <span class="hidden sm:inline">Boutique</span>
         </a>
-        <h2 class="text-xl font-black text-pink-600 italic">Admin Lydie</h2>
+        <h2 class="text-xl font-black text-pink-600 italic">Admin Stock</h2>
         <a href="/admin/admin-commandes.html" class="flex items-center gap-2 bg-white px-4 py-2 rounded-2xl shadow-sm border border-gray-100 text-sm font-bold text-gray-600 hover:bg-pink-50 transition">
             📋 <span class="hidden sm:inline">Commandes</span>
         </a>
@@ -29,8 +27,7 @@
             <h3 class="text-lg font-bold mb-4 text-center">Ajouter un nouveau bijou</h3>
             <form id="produit-form" class="space-y-4">
                 <input type="text" id="titre" class="w-full p-4 bg-gray-100 rounded-2xl border-none focus:ring-2 focus:ring-pink-300" placeholder="Nom du bijou" required>
-                
-                <textarea id="description" class="w-full p-4 bg-gray-100 rounded-2xl border-none focus:ring-2 focus:ring-pink-300 text-sm h-24 resize-none" placeholder="Description du bijou (matières, taille...)"></textarea>
+                <textarea id="description" class="w-full p-4 bg-gray-100 rounded-2xl border-none focus:ring-2 focus:ring-pink-300 text-sm h-24 resize-none" placeholder="Description..."></textarea>
 
                 <div class="grid grid-cols-2 gap-4">
                     <input type="number" step="0.01" id="prix" class="w-full p-4 bg-gray-100 rounded-2xl border-none focus:ring-2 focus:ring-pink-300" placeholder="Prix (€)" required>
@@ -48,16 +45,16 @@
                             <option value="ÉPUISÉ">ÉPUISÉ</option>
                             <option value="custom">✍️ Perso...</option>
                         </select>
-                        <input type="text" id="badge-custom" class="hidden flex-1 p-4 bg-pink-50 rounded-2xl border-none focus:ring-2 focus:ring-pink-300 text-sm font-bold placeholder:font-normal" placeholder="Texte du badge">
+                        <input type="text" id="badge-custom" class="hidden flex-1 p-4 bg-pink-50 rounded-2xl border-none focus:ring-2 focus:ring-pink-300 text-sm font-bold" placeholder="Texte du badge">
                     </div>
                 </div>
 
-                <div class="bg-pink-50 p-5 rounded-2xl border-2 border-dashed border-pink-200">
-                    <p class="text-[10px] text-pink-400 font-bold mb-2 uppercase text-center">Photo du bijou</p>
-                    <input type="file" id="fileInput" accept="image/*" class="text-xs w-full">
+                <div class="bg-pink-50 p-5 rounded-2xl border-2 border-dashed border-pink-200 text-center">
+                    <p class="text-[10px] text-pink-400 font-bold mb-2 uppercase">Photo du bijou</p>
+                    <input type="file" id="fileInput" accept="image/*" class="text-xs">
                 </div>
 
-                <div id="upload-progress-container" class="hidden w-full bg-gray-200 rounded-full h-2 mb-2">
+                <div id="upload-progress-container" class="hidden w-full bg-gray-200 rounded-full h-2">
                     <div id="upload-progress-bar" class="bg-pink-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
                 </div>
 
@@ -86,46 +83,14 @@
         let allProducts = [];
 
         netlifyIdentity.on('init', user => {
-            if (!user || user.email !== "lydie90@wanadoo.fr") {
-                window.location.href = "/";
-            } else {
-                document.body.style.display = "block";
-                chargerListe();
-            }
+            if (!user || user.email !== "lydie90@wanadoo.fr") window.location.href = "/";
+            else { document.body.style.display = "block"; chargerListe(); }
         });
-
-        netlifyIdentity.on('logout', () => window.location.href = "/");
 
         function handleBadgeChoice(val) {
             const customInput = document.getElementById('badge-custom');
-            if (val === 'custom') {
-                customInput.classList.remove('hidden');
-                customInput.focus();
-            } else {
-                customInput.classList.add('hidden');
-                customInput.value = ''; 
-            }
-        }
-
-        async function compressImage(file) {
-            return new Promise((resolve) => {
-                const reader = new FileReader();
-                reader.readAsDataURL(file);
-                reader.onload = (e) => {
-                    const img = new Image();
-                    img.src = e.target.result;
-                    img.onload = () => {
-                        const canvas = document.createElement('canvas');
-                        const MAX_WIDTH = 800;
-                        let width = img.width, height = img.height;
-                        if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
-                        canvas.width = width; canvas.height = height;
-                        const ctx = canvas.getContext('2d');
-                        ctx.drawImage(img, 0, 0, width, height);
-                        resolve(canvas.toDataURL('image/jpeg', 0.7).split(',')[1]);
-                    };
-                };
-            });
+            if (val === 'custom') { customInput.classList.remove('hidden'); customInput.focus(); }
+            else { customInput.classList.add('hidden'); customInput.value = ''; }
         }
 
         document.getElementById('produit-form').addEventListener('submit', async (e) => {
@@ -137,120 +102,96 @@
             
             if(!file) return alert("Photo manquante !");
 
-            const selectVal = document.getElementById('badge-select').value;
-            const customVal = document.getElementById('badge-custom').value;
-            const finalBadge = (selectVal === 'custom') ? customVal : selectVal;
-
             btn.disabled = true;
-            btn.innerText = "⏳ ENVOI EN COURS...";
+            btn.innerText = "⏳ ENVOI DIRECT (0 CRÉDIT)...";
             progressContainer.classList.remove('hidden');
-            progressBar.style.width = "10%";
+            progressBar.style.width = "30%";
 
             try {
-                const base64Content = await compressImage(file);
-                progressBar.style.width = "40%";
+                // 1. GÉNÉRER UN NOM DE FICHIER UNIQUE
                 const fileName = `img_${Date.now()}.jpg`;
 
-                const progressInterval = setInterval(() => {
-                    let currentWidth = parseInt(progressBar.style.width);
-                    if (currentWidth < 80) progressBar.style.width = (currentWidth + 5) + "%";
-                }, 150);
+                // 2. ENVOI DIRECT VERS SUPABASE STORAGE (Zéro "Deploy" Netlify !)
+                const { data: uploadData, error: uploadError } = await _supabase.storage
+                    .from('produits')
+                    .upload(fileName, file);
 
-                const res = await fetch('/.netlify/functions/upload', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ fileName, content: base64Content })
-                });
+                if (uploadError) throw uploadError;
+                progressBar.style.width = "70%";
 
-                clearInterval(progressInterval);
-                const result = await res.json();
-                if(!res.ok) throw new Error(result.error || "Erreur serveur");
+                // 3. RÉCUPÉRER L'URL PUBLIQUE
+                const { data: urlData } = _supabase.storage.from('produits').getPublicUrl(fileName);
+                const publicUrl = urlData.publicUrl;
 
-                progressBar.style.width = "90%";
+                // 4. INSÉRER DANS LA BASE DE DONNÉES
+                const selectVal = document.getElementById('badge-select').value;
+                const customVal = document.getElementById('badge-custom').value;
+                const finalBadge = (selectVal === 'custom') ? customVal : selectVal;
 
-                const { error } = await _supabase.from('produits').insert([{
+                const { error: dbError } = await _supabase.from('produits').insert([{
                     titre: document.getElementById('titre').value,
                     description: document.getElementById('description').value,
                     prix: parseFloat(document.getElementById('prix').value),
                     stock: parseInt(document.getElementById('stock').value),
                     badge: finalBadge.toUpperCase(),
-                    image: result.url
+                    image: publicUrl
                 }]);
 
-                if (error) throw error;
+                if (dbError) throw dbError;
 
                 progressBar.style.width = "100%";
-                
                 setTimeout(() => {
                     progressContainer.classList.add('hidden');
-                    progressBar.style.width = "0%";
                     document.getElementById('produit-form').reset();
-                    document.getElementById('badge-custom').classList.add('hidden');
                     document.getElementById('finish-area').classList.remove('hidden');
+                    chargerListe();
+                    btn.disabled = false;
+                    btn.innerText = "➕ Ajouter un autre bijou";
                 }, 500);
 
-                await chargerListe();
-                btn.disabled = false;
-                btn.innerText = "➕ Ajouter un autre bijou";
-                
             } catch (err) {
                 alert("Erreur : " + err.message);
                 btn.disabled = false;
                 btn.innerText = "🚀 Réessayer";
-                progressContainer.classList.add('hidden');
             }
         });
 
         async function chargerListe() {
             const { data } = await _supabase.from('produits').select('*').order('id', { ascending: false });
             const container = document.getElementById('produits-list');
-            const countEl = document.getElementById('product-count');
-            
             if (data) {
                 allProducts = data;
-                countEl.innerText = `${data.length} produits`;
+                document.getElementById('product-count').innerText = `${data.length} produits`;
                 container.innerHTML = data.map(p => `
-                    <div class="p-4 bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col gap-3">
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center gap-3">
-                                <div class="relative">
-                                    <img src="${p.image}" class="w-14 h-14 rounded-xl object-cover">
-                                    ${p.badge ? `<span class="absolute -top-1 -left-1 bg-pink-500 text-white text-[7px] px-1 rounded font-black">${p.badge}</span>` : ''}
-                                </div>
-                                <div>
-                                    <p class="text-sm font-bold leading-tight">${p.titre}</p>
-                                    <p class="text-[11px] font-black ${p.stock <= 0 ? 'text-red-500' : 'text-gray-400'}">
-                                        Stock: ${p.stock} ${p.stock <= 0 ? '(RUPTURE)' : ''}
-                                    </p>
-                                </div>
+                    <div class="p-4 bg-white rounded-2xl shadow-sm border border-gray-100 flex justify-between items-center">
+                        <div class="flex items-center gap-3">
+                            <img src="${p.image}" class="w-12 h-12 rounded-lg object-cover">
+                            <div>
+                                <p class="text-sm font-bold">${p.titre}</p>
+                                <p class="text-[10px] text-gray-400">Stock: ${p.stock}</p>
                             </div>
-                            <div class="flex flex-col gap-2">
-                                <button onclick="ouvrirModif(${p.id})" class="bg-blue-50 text-blue-600 p-2 rounded-lg text-xs font-bold hover:bg-blue-100 transition">✏️ Modifier</button>
-                                <button onclick="supprimer(${p.id})" class="bg-red-50 text-red-400 p-2 rounded-lg text-xs font-bold hover:bg-red-100 transition">🗑️</button>
-                            </div>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="ouvrirModif(${p.id})" class="text-blue-500 text-xs font-bold">Modifier</button>
+                            <button onclick="supprimer(${p.id})" class="text-red-400 text-xs font-bold">🗑️</button>
                         </div>
                     </div>
                 `).join('');
             }
         }
 
-        async function ouvrirModif(id) {
-            const p = allProducts.find(item => item.id === id);
-            if(!p) return;
-            const nStock = prompt("Nouveau stock :", p.stock);
-            if (nStock === null) return;
-            const nDesc = prompt("Nouvelle description :", p.description || "");
-            const nBadge = prompt("Badge (NEW, TOP, PROMO...) :", p.badge || "");
-            try {
-                const { error } = await _supabase.from('produits').update({ stock: parseInt(nStock), description: nDesc, badge: nBadge.toUpperCase() }).eq('id', id);
-                if (error) throw error;
-                await chargerListe();
-            } catch (e) { alert("Erreur modification"); }
-        }
-
         async function supprimer(id) {
             if(confirm("Supprimer ce bijou ?")) {
                 await _supabase.from('produits').delete().eq('id', id);
+                chargerListe();
+            }
+        }
+
+        async function ouvrirModif(id) {
+            const p = allProducts.find(item => item.id === id);
+            const nStock = prompt("Nouveau stock :", p.stock);
+            if (nStock !== null) {
+                await _supabase.from('produits').update({ stock: parseInt(nStock) }).eq('id', id);
                 chargerListe();
             }
         }
