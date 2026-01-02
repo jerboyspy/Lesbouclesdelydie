@@ -2,286 +2,194 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gestion Commandes - Les Boucles de Lydie</title>
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Les Boucles de Lydie</title>
     <link rel="icon" type="image/png" href="/favicon.png">
-
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
     <style>body { display: none; }</style>
 </head>
-<body class="bg-gray-50 text-gray-800 font-sans">
+<body class="bg-gray-50 p-4 pb-24 text-gray-800 font-sans">
 
-    <nav class="bg-white shadow-sm p-3 sticky top-0 z-50 flex justify-between items-center">
-        <span class="text-pink-600 font-bold text-sm">💎 Administration</span>
-        <div class="flex gap-2">
-            <a href="/admin/" class="bg-gray-800 text-white px-3 py-2 rounded-lg text-[10px] font-bold uppercase">📦 Stock</a>
-            <a href="/" class="bg-gray-200 text-gray-600 px-3 py-2 rounded-lg text-[10px] font-bold uppercase">🏠 Site</a>
+    <div class="max-w-lg mx-auto flex justify-between items-center mb-6 px-2">
+        <a href="/" class="flex items-center gap-2 bg-white px-4 py-2 rounded-2xl shadow-sm border border-gray-100 text-sm font-bold text-gray-600 hover:bg-pink-50 transition">
+            🏠 <span class="hidden sm:inline">Boutique</span>
+        </a>
+        <h2 class="text-xl font-black text-pink-600 italic">Admin Lydie</h2>
+        <a href="/admin/admin-commandes.html" class="flex items-center gap-2 bg-white px-4 py-2 rounded-2xl shadow-sm border border-gray-100 text-sm font-bold text-gray-600 hover:bg-pink-50 transition">
+            📋 <span class="hidden sm:inline">Commandes</span>
+        </a>
+    </div>
+
+    <div class="max-w-lg mx-auto">
+        <div class="bg-white p-6 rounded-3xl shadow-xl mb-8 border border-pink-100">
+            <h3 class="text-lg font-bold mb-4 text-center">Ajouter un nouveau bijou</h3>
+            <form id="produit-form" class="space-y-4">
+                <input type="text" id="titre" class="w-full p-4 bg-gray-100 rounded-2xl border-none focus:ring-2 focus:ring-pink-300" placeholder="Nom du bijou" required>
+                <textarea id="description" class="w-full p-4 bg-gray-100 rounded-2xl border-none focus:ring-2 focus:ring-pink-300 text-sm h-24 resize-none" placeholder="Description du bijou"></textarea>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <input type="number" step="0.01" id="prix" class="w-full p-4 bg-gray-100 rounded-2xl border-none focus:ring-2 focus:ring-pink-300" placeholder="Prix (€)" required>
+                    <input type="number" id="stock" class="w-full p-4 bg-gray-100 rounded-2xl border-none focus:ring-2 focus:ring-pink-300" placeholder="Stock" required>
+                </div>
+
+                <div class="space-y-2">
+                    <label class="text-[10px] font-bold uppercase text-gray-400 ml-2">Badge</label>
+                    <div class="flex gap-2">
+                        <select id="badge-select" onchange="handleBadgeChoice(this.value)" class="flex-1 p-4 bg-gray-100 rounded-2xl border-none focus:ring-2 focus:ring-pink-300 text-sm outline-none">
+                            <option value="">Aucun badge</option>
+                            <option value="NEW">NEW</option>
+                            <option value="TOP">TOP</option>
+                            <option value="PROMO">PROMO</option>
+                            <option value="ÉPUISÉ">ÉPUISÉ</option>
+                            <option value="custom">✍️ Perso...</option>
+                        </select>
+                        <input type="text" id="badge-custom" class="hidden flex-1 p-4 bg-pink-50 rounded-2xl border-none focus:ring-2 focus:ring-pink-300 text-sm font-bold placeholder:font-normal" placeholder="Texte du badge">
+                    </div>
+                </div>
+
+                <div class="bg-pink-50 p-5 rounded-2xl border-2 border-dashed border-pink-200">
+                    <p class="text-[10px] text-pink-400 font-bold mb-2 uppercase text-center">Photo du bijou</p>
+                    <input type="file" id="fileInput" accept="image/*" class="text-xs w-full">
+                </div>
+
+                <div id="upload-progress-container" class="hidden w-full bg-gray-200 rounded-full h-2 mb-2">
+                    <div id="upload-progress-bar" class="bg-pink-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+
+                <button type="submit" id="btn-submit" class="w-full bg-pink-500 text-white py-5 rounded-2xl font-black uppercase shadow-lg hover:bg-pink-600 transition">➕ Ajouter à la collection</button>
+            </form>
         </div>
-    </nav>
 
-    <div class="max-w-md mx-auto p-4">
-
-        <div class="bg-gray-900 text-white p-6 rounded-[40px] mb-6 shadow-xl border-b-4 border-pink-500">
-            <h3 class="text-[10px] font-black uppercase text-pink-400 mb-4 tracking-widest text-center">💰 Gains Bijoux (Hors Port)</h3>
-            <div id="stats-mois" class="space-y-3 mb-6">
-                <p class="text-center text-xs text-gray-500 italic">Analyse des bénéfices...</p>
-            </div>
-            <button onclick="telechargerBilan()" class="w-full bg-white/10 hover:bg-white/20 py-3 rounded-2xl text-[10px] font-bold uppercase border border-white/5 flex items-center justify-center gap-2">
-                📥 Télécharger le bilan .txt
+        <div id="finish-area" class="hidden mb-8">
+            <button onclick="window.location.href='/'" class="w-full bg-gray-800 text-white py-4 rounded-2xl font-bold uppercase shadow-md">
+                ✅ Terminer et voir la boutique
             </button>
         </div>
 
-        <div class="grid grid-cols-1 gap-4 mb-6">
-            <div class="bg-white p-6 rounded-3xl shadow-sm border border-pink-100 flex flex-col items-center justify-center">
-                <p class="text-[9px] font-black uppercase text-gray-400 mb-1 tracking-tighter">👀 Visiteurs sur le site</p>
-                <h3 id="total-visiteurs" class="text-3xl font-black text-pink-500">...</h3>
-            </div>
-
-            <div class="bg-white p-5 rounded-3xl shadow-sm border border-pink-100">
-                <p class="text-[9px] font-black uppercase text-pink-400 mb-3 text-center tracking-widest">🏆 Meilleures Clientes (€)</p>
-                <div id="classement-acheteurs" class="space-y-2">
-                    <p class="text-center text-[10px] text-gray-400 italic">Analyse des fidélités...</p>
-                </div>
-            </div>
+        <div class="flex justify-between items-center mb-3 px-2">
+            <h3 class="font-bold text-gray-700">Gestion du stock</h3>
+            <span id="product-count" class="text-[10px] bg-pink-100 text-pink-500 px-2 py-1 rounded-full font-bold">0 produits</span>
         </div>
         
-        <div class="bg-white p-4 rounded-2xl shadow-sm mb-6 border border-pink-100">
-            <h3 class="text-[10px] font-black uppercase text-pink-400 mb-3 text-center">Configuration Livraison (Défaut)</h3>
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label class="text-[9px] font-bold text-gray-400 uppercase">Prix Port (€)</label>
-                    <input type="number" id="global-port" value="4.50" step="0.01" onchange="chargerCommandes()" class="w-full p-2 bg-gray-50 rounded-lg text-sm border border-gray-200 font-bold outline-none focus:ring-2 focus:ring-pink-200">
-                </div>
-                <div>
-                    <label class="text-[9px] font-bold text-gray-400 uppercase">Gratuit dès (€)</label>
-                    <input type="number" id="global-seuil" value="50" onchange="chargerCommandes()" class="w-full p-2 bg-gray-50 rounded-lg text-sm border border-gray-200 font-bold outline-none focus:ring-2 focus:ring-pink-200">
-                </div>
-            </div>
-        </div>
-
-        <div id="liste-admin" class="space-y-4">
-            <p class="text-center py-10 text-gray-400 italic">Chargement...</p>
+        <div id="produits-list" class="space-y-3">
+            <p class="text-center py-10 text-gray-400 italic text-sm">Chargement...</p>
         </div>
     </div>
 
     <script>
         const _supabase = supabase.createClient("https://rsebvgdneetbbmdchwil.supabase.co", "sb_publishable_c_U9tbQzawyqAVuLTEYWWA_XBW6Fbs6");
-        let allData = [];
+        let allProducts = [];
 
         netlifyIdentity.on('init', user => {
-            if (!user || user.email.toLowerCase() !== "lydie90@wanadoo.fr") window.location.href = "/";
-            else { 
-                document.body.style.display = "block"; 
-                chargerCommandes();
-                chargerVisiteurs();
+            if (!user || user.email !== "lydie90@wanadoo.fr") window.location.href = "/";
+            else { document.body.style.display = "block"; chargerListe(); }
+        });
+
+        function handleBadgeChoice(val) {
+            const customInput = document.getElementById('badge-custom');
+            if (val === 'custom') { customInput.classList.remove('hidden'); customInput.focus(); }
+            else { customInput.classList.add('hidden'); customInput.value = ''; }
+        }
+
+        document.getElementById('produit-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('btn-submit');
+            const file = document.getElementById('fileInput').files[0];
+            const progressContainer = document.getElementById('upload-progress-container');
+            const progressBar = document.getElementById('upload-progress-bar');
+            
+            if(!file) return alert("Photo manquante !");
+            
+            btn.disabled = true;
+            btn.innerText = "⏳ ENVOI IMAGE...";
+            progressContainer.classList.remove('hidden');
+            progressBar.style.width = "20%";
+
+            try {
+                const fileName = `img_${Date.now()}.jpg`;
+
+                // ENVOI DIRECT VERS SUPABASE STORAGE (Zéro crédit Netlify)
+                const { data: uploadData, error: uploadError } = await _supabase.storage
+                    .from('produits')
+                    .upload(fileName, file);
+
+                if (uploadError) throw uploadError;
+                progressBar.style.width = "60%";
+
+                const { data: urlData } = _supabase.storage.from('produits').getPublicUrl(fileName);
+                const publicUrl = urlData.publicUrl;
+
+                const selectVal = document.getElementById('badge-select').value;
+                const customVal = document.getElementById('badge-custom').value;
+                const finalBadge = (selectVal === 'custom') ? customVal : selectVal;
+
+                const { error: dbError } = await _supabase.from('produits').insert([{
+                    titre: document.getElementById('titre').value,
+                    description: document.getElementById('description').value,
+                    prix: parseFloat(document.getElementById('prix').value),
+                    stock: parseInt(document.getElementById('stock').value),
+                    badge: finalBadge.toUpperCase(),
+                    image: publicUrl
+                }]);
+
+                if (dbError) throw dbError;
+
+                progressBar.style.width = "100%";
+                setTimeout(() => {
+                    progressContainer.classList.add('hidden');
+                    document.getElementById('produit-form').reset();
+                    document.getElementById('finish-area').classList.remove('hidden');
+                    chargerListe();
+                    btn.disabled = false;
+                    btn.innerText = "➕ Ajouter un autre bijou";
+                }, 500);
+
+            } catch (err) {
+                alert("Erreur : " + err.message);
+                btn.disabled = false;
+                btn.innerText = "🚀 Réessayer";
             }
         });
 
-        async function chargerVisiteurs() {
-            try {
-                const { data, error } = await _supabase
-                    .from('statistiques')
-                    .select('valeur')
-                    .eq('nom', 'visiteurs')
-                    .maybeSingle();
-
-                if (error) throw error;
-
-                const afficheur = document.getElementById('total-visiteurs');
-                if (data) {
-                    afficheur.innerText = data.valeur;
-                } else {
-                    afficheur.innerText = "0";
-                }
-            } catch (e) { 
-                console.error("Erreur visiteurs:", e);
-                document.getElementById('total-visiteurs').innerText = "0"; 
-            }
-        }
-
-        async function chargerCommandes() {
-            const { data, error } = await _supabase.from('commande').select('*').order('created_at', { ascending: false });
-            if (error) return;
-            allData = data;
-
-            const statsContainer = document.getElementById('stats-mois');
-            const gainsParMois = {};
-            const depensesParClient = {};
-            
-            data.forEach(c => {
-                const email = c.client_email.toLowerCase();
-                if (c.statut === 'Clôturée') {
-                    const mois = new Date(c.created_at).toLocaleString('fr-FR', { month: 'long', year: 'numeric' });
-                    const net = (parseFloat(c.total) || 0) - (parseFloat(c.frais_port) || 0);
-                    gainsParMois[mois] = (gainsParMois[mois] || 0) + net;
-                }
-                if (['Validée', 'Payée', 'Expédiée', 'Clôturée'].includes(c.statut)) {
-                    if (!depensesParClient[email]) {
-                        depensesParClient[email] = { total: 0, nom: c.nom_client || c.client_email };
-                    }
-                    depensesParClient[email].total += (parseFloat(c.total) || 0);
-                }
-            });
-
-            statsContainer.innerHTML = Object.entries(gainsParMois).map(([m, t]) => `
-                <div class="flex justify-between items-center border-b border-white/5 pb-2">
-                    <span class="text-[10px] font-bold uppercase text-gray-400 capitalize">${m}</span>
-                    <span class="text-lg font-black text-pink-400">${t.toFixed(2)}€</span>
-                </div>
-            `).join('') || '<p class="text-center text-xs text-gray-500 italic">Aucun gain clôturé.</p>';
-
-            const classementTrie = Object.entries(depensesParClient).sort((a, b) => b[1].total - a[1].total).slice(0, 5);
-            document.getElementById('classement-acheteurs').innerHTML = classementTrie.map(([email, infos], i) => `
-                <div class="flex items-center justify-between bg-pink-50/50 p-2 rounded-xl border border-pink-100">
-                    <div class="flex items-center gap-2 truncate">
-                        <span class="bg-pink-500 text-white text-[8px] font-black w-4 h-4 flex items-center justify-center rounded-full">#${i+1}</span>
-                        <span class="text-[10px] font-bold truncate text-gray-600">${infos.nom}</span>
-                    </div>
-                    <span class="text-[11px] font-black text-pink-600 ml-2">${infos.total.toFixed(2)}€</span>
-                </div>
-            `).join('') || '<p class="text-center text-[10px] text-gray-400 italic">Aucune commande validée.</p>';
-
-            const container = document.getElementById('liste-admin');
-            container.innerHTML = data.map(c => {
-                const sColors = { 'En attente': 'bg-orange-100 text-orange-700', 'Validée': 'bg-green-100 text-green-700', 'Payée': 'bg-blue-100 text-blue-700', 'Expédiée': 'bg-purple-100 text-purple-700', 'Clôturée': 'bg-gray-200 text-gray-500' };
-                const portParDefaut = (c.frais_port !== undefined && c.frais_port !== null) ? c.frais_port : (parseFloat(c.total) >= parseFloat(document.getElementById('global-seuil').value) ? 0 : parseFloat(document.getElementById('global-port').value));
-
-                const msgValide = `Coucou 🌸 C'est Lydie. Ta commande est validée ! ✅\nTotal à régler : ${parseFloat(c.total).toFixed(2)}€.\nTu peux faire ton Wero sur mon numéro. Une fois fait, préviens-moi ici ! ✨`;
-                const msgPaye = `💰 Coucou ! J'ai bien reçu ton paiement. ✨ Je prépare ton colis avec amour. Lydie`;
-                const msgExpedie = `📦 Bonne nouvelle ! Ton colis Les Boucles de Lydie est en route ! 🌸`;
-
-                const contenuJS = c.contenu.replace(/[`'"]/g, " ");
-
-                return `
-                <div class="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 mb-4 ${c.statut === 'Clôturée' ? 'opacity-60' : ''}">
-                    <div class="flex justify-between items-start mb-4">
-                        <div class="w-2/3">
-                            <p class="font-bold text-gray-800 text-sm truncate">${c.nom_client || c.client_email}</p>
-                            <p class="text-[9px] text-gray-400 uppercase font-medium">${new Date(c.created_at).toLocaleDateString('fr-FR')}</p>
+        async function chargerListe() {
+            const { data } = await _supabase.from('produits').select('*').order('id', { ascending: false });
+            const container = document.getElementById('produits-list');
+            if (data) {
+                allProducts = data;
+                document.getElementById('product-count').innerText = `${data.length} produits`;
+                container.innerHTML = data.map(p => `
+                    <div class="p-4 bg-white rounded-2xl shadow-sm border border-gray-100 flex justify-between items-center">
+                        <div class="flex items-center gap-3">
+                            <img src="${p.image}" class="w-12 h-12 rounded-lg object-cover">
+                            <div>
+                                <p class="text-sm font-bold">${p.titre}</p>
+                                <p class="text-[10px] text-gray-400">Stock: ${p.stock}</p>
+                            </div>
                         </div>
-                        <span class="text-[9px] font-black px-2 py-1 rounded-full uppercase ${sColors[c.statut]}">${c.statut}</span>
-                    </div>
-
-                    <div class="bg-gray-50 p-3 rounded-xl text-[10px] text-gray-500 mb-4 whitespace-pre-wrap italic border border-gray-100/50">${c.contenu}</div>
-
-                    ${c.statut !== 'Clôturée' ? `
-                    <div class="bg-pink-50/50 p-3 rounded-2xl border border-pink-100 mb-4 space-y-3">
-                        <div class="flex justify-between items-center">
-                            <label class="text-[10px] font-bold text-pink-400 uppercase">Frais de Port (€)</label>
-                            <input type="number" id="port-${c.id}" value="${portParDefaut}" step="0.10" class="w-20 p-1 text-right rounded-lg border-none bg-white text-sm font-bold shadow-sm outline-none ring-1 ring-pink-200">
-                        </div>
-                        <div class="flex justify-between items-center">
-                            <label class="text-[10px] font-bold text-pink-400 uppercase">Total Client (€)</label>
-                            <input type="number" id="prix-final-${c.id}" value="${c.total}" step="0.01" class="w-24 p-1 text-right rounded-lg border-none bg-white text-sm font-bold shadow-sm outline-none ring-1 ring-pink-200">
+                        <div class="flex gap-2">
+                            <button onclick="ouvrirModif(${p.id})" class="text-blue-500 text-xs font-bold">Modifier</button>
+                            <button onclick="supprimer(${p.id})" class="text-red-400 text-xs font-bold">🗑️</button>
                         </div>
                     </div>
-
-                    <div class="grid grid-cols-2 gap-2">
-                        ${c.statut === 'En attente' ? 
-                            `<button onclick="validerAction('${c.id}', \`${contenuJS}\`, \`${msgValide}\` )" class="col-span-2 bg-green-500 text-white py-3 rounded-xl text-[10px] font-black uppercase shadow-md active:scale-95 transition">✅ Valider & WhatsApp Client</button>` :
-                            `<button onclick="ouvrirWhatsApp(\`${contenuJS}\`, \`${c.statut === 'Validée' ? msgValide : (c.statut === 'Payée' ? msgPaye : msgExpedie)}\` )" class="col-span-2 bg-gray-100 text-gray-600 py-3 rounded-xl text-[10px] font-black uppercase border border-gray-200 mb-2">📲 Renvoyer WhatsApp (${c.statut})</button>`
-                        }
-                        
-                        <button onclick="changerStatut('${c.id}', 'Payée', \`${msgPaye}\`, \`${contenuJS}\` )" class="bg-blue-500 text-white py-2 rounded-xl text-[10px] font-black uppercase">💰 Payée</button>
-                        <button onclick="changerStatut('${c.id}', 'Expédiée', \`${msgExpedie}\`, \`${contenuJS}\` )" class="bg-purple-500 text-white py-2 rounded-xl text-[10px] font-black uppercase">📦 Expédiée</button>
-
-                        ${c.statut === 'Expédiée' ? 
-                            `<button onclick="cloturerCommande('${c.id}')" class="col-span-2 mt-2 bg-gray-800 text-white py-3 rounded-xl text-[10px] font-black uppercase shadow-inner">🏁 Clôturer la vente</button>` : ''
-                        }
-                    </div>
-                    ` : '<p class="text-center text-[10px] font-bold text-gray-400 py-2 uppercase tracking-widest">✅ Commande Terminée</p>'}
-
-                    <button onclick="supprimerCommande('${c.id}')" class="w-full mt-3 text-[9px] text-gray-300 font-bold uppercase tracking-widest py-2">🗑️ Supprimer</button>
-                </div>`;
-            }).join('');
-        }
-
-        async function validerAction(id, bloc, message) {
-            const elPrix = document.getElementById(`prix-final-${id}`);
-            const elPort = document.getElementById(`port-${id}`);
-            if (!elPrix || !elPort) return;
-            const prixFinal = parseFloat(elPrix.value);
-            const fraisPort = parseFloat(elPort.value);
-            
-            try {
-                const lignes = bloc.split('\n');
-                for (let ligne of lignes) {
-                    if (ligne.trim().startsWith('-')) {
-                        let nomProduit = ligne.replace('-', '').split('(')[0].trim();
-                        const { data: pData } = await _supabase.from('produits').select('id, stock').eq('titre', nomProduit).single();
-                        if (pData && pData.stock > 0) {
-                            await _supabase.from('produits').update({ stock: pData.stock - 1 }).eq('id', pData.id);
-                        }
-                    }
-                }
-            } catch (err) { console.error("Stock error:", err); }
-
-            const { error } = await _supabase.from('commande').update({ total: prixFinal, frais_port: fraisPort, statut: 'Validée' }).eq('id', id);
-            if (!error) {
-                ouvrirWhatsApp(bloc, message);
-                chargerCommandes();
+                `).join('');
             }
         }
 
-        async function changerStatut(id, statut, message, bloc) {
-            const { error } = await _supabase.from('commande').update({ statut: statut }).eq('id', id);
-            if (!error) { 
-                ouvrirWhatsApp(bloc, message); 
-                chargerCommandes(); 
+        async function supprimer(id) {
+            if(confirm("Supprimer ?")) {
+                await _supabase.from('produits').delete().eq('id', id);
+                chargerListe();
             }
         }
 
-        function ouvrirWhatsApp(bloc, message) {
-            const regexTel = /(?:TEL|Tel|Tél):\s*([\d\s\+\.]+)/i;
-            const match = bloc.match(regexTel);
-            if (match && match[1]) {
-                let tel = match[1].replace(/[\s\+\.]/g, ''); 
-                if(tel.startsWith('0')) tel = '33' + tel.substring(1);
-                if(!tel.startsWith('33')) tel = '33' + tel;
-                
-                const url = `https://wa.me/${tel}?text=${encodeURIComponent(message)}`;
-                
-                const a = document.createElement('a');
-                a.href = url;
-                a.target = '_blank';
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-            } else {
-                alert("Numéro du client introuvable dans le texte.");
-            }
-        }
-
-        async function cloturerCommande(id) {
-            if (confirm("Clôturer ?")) {
-                const { error } = await _supabase.from('commande').update({ statut: 'Clôturée' }).eq('id', id);
-                if (!error) chargerCommandes();
-            }
-        }
-
-        function telechargerBilan() {
-            const cloturees = allData.filter(c => c.statut === 'Clôturée');
-            let totalNetGlobal = 0;
-            let txt = "BILAN - LES BOUCLES DE LYDIE\n\n";
-            cloturees.forEach(c => {
-                const net = parseFloat(c.total) - (parseFloat(c.frais_port) || 0);
-                totalNetGlobal += net;
-                txt += `${new Date(c.created_at).toLocaleDateString()} | ${c.nom_client || c.client_email} | Gain: ${net.toFixed(2)}€\n`;
-            });
-            txt += `\nTOTAL NET RÉCOLTÉ : ${totalNetGlobal.toFixed(2)}€`;
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(new Blob([txt], { type: 'text/plain' }));
-            link.download = `bilan_lydie.txt`;
-            link.click();
-        }
-
-        async function supprimerCommande(id) {
-            if (confirm("Supprimer ?")) {
-                await _supabase.from('commande').delete().eq('id', id);
-                chargerCommandes();
+        async function ouvrirModif(id) {
+            const p = allProducts.find(item => item.id === id);
+            const nStock = prompt("Nouveau stock :", p.stock);
+            if (nStock !== null) {
+                await _supabase.from('produits').update({ stock: parseInt(nStock) }).eq('id', id);
+                chargerListe();
             }
         }
     </script>
