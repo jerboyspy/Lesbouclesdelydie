@@ -163,7 +163,7 @@
                             <img src="${p.image}" class="w-14 h-14 rounded-xl object-cover border border-gray-100">
                             <div>
                                 <p class="text-[10px] font-bold text-pink-400 uppercase tracking-widest">Réf: #${p.id}</p>
-                                <p class="text-sm font-bold text-gray-800 leading-tight">${p.titre}</p>
+                                <p class="text-sm font-bold text-gray-800 leading-tight">${p.titre} ${p.badge ? `<span class="bg-pink-100 text-pink-500 text-[8px] px-1 rounded">${p.badge}</span>` : ''}</p>
                                 <div class="flex gap-2 items-center">
                                     <p class="text-[11px] font-black ${p.stock <= 0 ? 'text-red-500' : 'text-gray-400'}">
                                         Stock: ${p.stock}
@@ -189,7 +189,7 @@
             }
         }
 
-        // FONCTION DE MODIFICATION GÉNÉRALE (NOM + DESCRIPTION + PRIX + STOCK)
+        // FONCTION DE MODIFICATION TOTALE (NOM + DESCRIPTION + PRIX + STOCK + BADGE)
         async function ouvrirModif(id) {
             const p = allProducts.find(item => item.id === id);
             
@@ -209,6 +209,10 @@
             const nStock = prompt("Nouveau stock :", p.stock);
             if (nStock === null) return;
 
+            // 5. Modifier le Badge
+            const nBadge = prompt("Modifier le badge (ex: NEW, TOP, PROMO ou laisser vide) :", p.badge || "");
+            if (nBadge === null) return;
+
             try {
                 const { error } = await _supabase
                     .from('produits')
@@ -216,7 +220,8 @@
                         titre: nTitre.trim(),
                         description: nDesc.trim(),
                         prix: parseFloat(String(nPrix).replace(',', '.')),
-                        stock: parseInt(nStock) 
+                        stock: parseInt(nStock),
+                        badge: nBadge.trim().toUpperCase()
                     })
                     .eq('id', id);
 
