@@ -103,7 +103,7 @@
             if(!file) return alert("Photo manquante !");
 
             btn.disabled = true;
-            btn.innerText = "⏳ ENVOI DIRECT (0 CRÉDIT)...";
+            btn.innerText = "⏳ ENVOI EN COURS...";
             progressContainer.classList.remove('hidden');
             progressBar.style.width = "30%";
 
@@ -189,7 +189,7 @@
             }
         }
 
-        // FONCTION DE MODIFICATION MISE À JOUR (NOM + STOCK + PRIX)
+        // FONCTION DE MODIFICATION GÉNÉRALE (NOM + DESCRIPTION + PRIX + STOCK)
         async function ouvrirModif(id) {
             const p = allProducts.find(item => item.id === id);
             
@@ -197,12 +197,16 @@
             const nTitre = prompt("Modifier le nom du bijou :", p.titre);
             if (nTitre === null) return;
 
-            // 2. Modifier le Prix
+            // 2. Modifier la Description
+            const nDesc = prompt("Modifier la description :", p.description || "");
+            if (nDesc === null) return;
+
+            // 3. Modifier le Prix
             const nPrix = prompt("Modifier le prix (€) :", p.prix);
             if (nPrix === null) return;
 
-            // 3. Modifier le Stock
-            const nStock = prompt("Nouveau stock pour " + nTitre + " :", p.stock);
+            // 4. Modifier le Stock
+            const nStock = prompt("Nouveau stock :", p.stock);
             if (nStock === null) return;
 
             try {
@@ -210,7 +214,8 @@
                     .from('produits')
                     .update({ 
                         titre: nTitre.trim(),
-                        prix: parseFloat(nPrix),
+                        description: nDesc.trim(),
+                        prix: parseFloat(String(nPrix).replace(',', '.')),
                         stock: parseInt(nStock) 
                     })
                     .eq('id', id);
@@ -218,7 +223,7 @@
                 if (error) throw error;
                 chargerListe();
             } catch (err) {
-                alert("Erreur : " + err.message);
+                alert("Erreur lors de la mise à jour : " + err.message);
             }
         }
     </script>
