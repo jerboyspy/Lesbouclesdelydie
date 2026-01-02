@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mon Panier - Les Boucles de Lydie</title>
-    
     <link rel="icon" type="image/png" href="favicon.png">
-
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
@@ -14,7 +12,7 @@
 <body class="bg-gray-50 p-4 pb-20 font-sans text-gray-800">
     <div class="max-w-lg mx-auto">
         <div class="flex items-center gap-4 mb-8">
-            <a href="/" class="text-2xl">←</a>
+            <a href="/" class="text-2xl hover:text-pink-600 transition">←</a>
             <h1 class="text-2xl font-black italic text-pink-600">Mon Panier</h1>
         </div>
 
@@ -24,11 +22,15 @@
             <h3 class="text-center font-bold text-pink-500 uppercase text-xs tracking-widest">Tes Coordonnées</h3>
             <input type="text" id="client-nom" placeholder="Prénom et Nom" class="w-full p-4 bg-gray-100 rounded-2xl border-none text-sm focus:ring-2 focus:ring-pink-300">
             <input type="tel" id="client-tel" placeholder="Téléphone (ex: 06...)" class="w-full p-4 bg-gray-100 rounded-2xl border-none text-sm focus:ring-2 focus:ring-pink-300">
-            <textarea id="client-adresse" placeholder="Adresse complète" class="w-full p-4 bg-gray-100 rounded-2xl border-none text-sm h-24 focus:ring-2 focus:ring-pink-300"></textarea>
+            <textarea id="client-adresse" placeholder="Adresse complète" class="w-full p-4 bg-gray-100 rounded-2xl border-none text-sm h-24 focus:ring-2 focus:ring-pink-300 text-gray-600"></textarea>
         </div>
 
         <div class="bg-white p-6 rounded-3xl shadow-xl border border-pink-100 space-y-3">
-            <div class="flex justify-between font-bold text-lg"><span>TOTAL</span><span id="total-final" class="text-pink-600">0.00€</span></div>
+            <div class="flex justify-between font-bold text-lg px-2">
+                <span class="text-gray-400 text-sm uppercase self-center">Total à régler</span>
+                <span id="total-final" class="text-2xl text-pink-600 font-black">0.00€</span>
+            </div>
+            <p id="info-port" class="text-center text-[10px] font-bold text-gray-400 italic uppercase"></p>
             <button id="btn-valider" onclick="validerCommande()" class="w-full bg-pink-500 text-white py-5 rounded-2xl font-black uppercase shadow-lg mt-4 active:scale-95 transition-all">
                 Confirmer la commande
             </button>
@@ -45,6 +47,18 @@
             try {
                 const data = localStorage.getItem('panier');
                 panier = data ? JSON.parse(data) : [];
+                
+                // Récupération des images manquantes si besoin (Supabase)
+                if (panier.length > 0 && !panier[0].image) {
+                   const ids = panier.map(p => p.id);
+                   const { data: prods } = await _supabase.from('produits').select('id, image').in('id', ids);
+                   if (prods) {
+                       panier = panier.map(item => {
+                           const extra = prods.find(p => p.id === item.id);
+                           return extra ? { ...item, image: extra.image } : item;
+                       });
+                   }
+                }
             } catch (e) { panier = []; }
             afficherPanier();
 
@@ -64,7 +78,6 @@
             }
         }
 
-        // FONCTION POUR SUPPRIMER UN ARTICLE
         function supprimerArticle(index) {
             panier.splice(index, 1);
             localStorage.setItem('panier', JSON.stringify(panier));
@@ -74,21 +87,23 @@
         function afficherPanier() {
             const container = document.getElementById('liste-panier');
             if (panier.length === 0) {
-                container.innerHTML = '<div class="text-center py-10 text-gray-400">Ton panier est vide 🌸</div>';
+                container.innerHTML = '<div class="text-center py-10 text-gray-400 italic">Ton panier est vide 🌸</div>';
                 document.getElementById('total-final').innerText = "0.00€";
+                document.getElementById('info-port').innerText = "";
                 return;
             }
 
             container.innerHTML = panier.map((item, index) => `
-                <div class="flex items-center justify-between bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+                <div class="flex items-center justify-between bg-white p-3 pr-4 rounded-3xl shadow-sm border border-gray-100">
                     <div class="flex items-center gap-4">
-                        <div class="bg-pink-100 text-pink-500 w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs">${index + 1}</div>
+                        <img src="${item.image || 'https://via.placeholder.com/100'}" class="w-14 h-14 rounded-2xl object-cover shadow-sm">
                         <div>
-                            <p class="font-bold text-sm text-gray-800">${item.titre}</p>
-                            <p class="text-pink-500 font-bold text-xs">${parseFloat(item.prix).toFixed(2)}€</p>
+                            <p class="font-black text-xs text-gray-800 leading-tight">${item.titre}</p>
+                            <p class="text-[10px] text-pink-300 font-bold uppercase mb-1">Réf: #${item.id}</p>
+                            <p class="text-pink-500 font-black text-sm">${parseFloat(item.prix).toFixed(2)}€</p>
                         </div>
                     </div>
-                    <button onclick="supprimerArticle(${index})" class="text-gray-400 hover:text-red-500 p-2 transition-colors">
+                    <button onclick="supprimerArticle(${index})" class="bg-gray-50 text-gray-300 hover:text-red-500 p-2 rounded-xl transition-colors">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
@@ -99,7 +114,9 @@
             const st = panier.reduce((sum, item) => sum + parseFloat(item.prix || 0), 0);
             fraisPortAppliques = st >= 50 ? 0 : 4.50;
             totalGlobal = st + fraisPortAppliques;
+            
             document.getElementById('total-final').innerText = totalGlobal.toFixed(2) + "€";
+            document.getElementById('info-port').innerText = st >= 50 ? "🎉 Livraison offerte !" : `Port : ${fraisPortAppliques.toFixed(2)}€ (Offert dès 50€)`;
         }
 
         async function validerCommande() {
@@ -110,28 +127,28 @@
             const adresse = document.getElementById('client-adresse').value.trim();
             let telRaw = document.getElementById('client-tel').value.replace(/\s+/g, '').replace(/\./g, '');
             if (telRaw.startsWith('0')) telRaw = '33' + telRaw.substring(1);
-            const tel = telRaw;
-
-            if (!nom || tel.length < 10 || !adresse) return alert("⚠️ Merci de vérifier tes coordonnées.");
+            
+            if (!nom || telRaw.length < 10 || !adresse) return alert("⚠️ Merci de vérifier tes coordonnées.");
 
             const btn = document.getElementById('btn-valider');
             btn.disabled = true;
-            btn.innerText = "ENVOI EN COURS...";
+            btn.innerText = "⏳ ENREGISTREMENT...";
 
-            const listeTxt = panier.map(p => `- ${p.titre} (${p.prix}€)`).join('\n');
+            // CRUCIAL : On inclut (#ID) pour l'administration
+            const listeTxt = panier.map(p => `- ${p.titre} (#${p.id}) ${p.prix}€`).join('\n');
 
             try {
                 await _supabase.from('profils').upsert({
                     email: user.email.toLowerCase(),
                     nom_prenom: nom,
                     adresse: adresse,
-                    telephone: tel
+                    telephone: telRaw
                 }, { onConflict: 'email' });
 
                 const { error } = await _supabase.from('commande').insert([{
                     client_email: user.email.toLowerCase(),
                     nom_client: nom,
-                    contenu: `CLIENT: ${nom}\nTEL: ${tel}\nADRESSE: ${adresse}\n\nPRODUITS:\n${listeTxt}`,
+                    contenu: `CLIENT: ${nom}\nTEL: ${telRaw}\nADRESSE: ${adresse}\n\nPRODUITS:\n${listeTxt}`,
                     total: totalGlobal,
                     statut: 'En attente',
                     frais_port: fraisPortAppliques
@@ -139,7 +156,7 @@
 
                 if (error) throw error;
 
-                const messageWA = encodeURIComponent(`Coucou Lydie ! 🌸\nJe souhaite commander :\n${listeTxt}\n\n*TOTAL : ${totalGlobal.toFixed(2)}€*\n\nMes coordonnées :\n${nom}\n${tel}\n${adresse}`);
+                const messageWA = encodeURIComponent(`Coucou Lydie ! 🌸\nJe souhaite commander :\n${listeTxt}\n\n*TOTAL : ${totalGlobal.toFixed(2)}€*\n\nMes coordonnées :\n${nom}\n${telRaw}\n${adresse}`);
                 localStorage.removeItem('panier');
                 window.open(`https://wa.me/33673460409?text=${messageWA}`, '_blank');
                 window.location.href = "merci.html";
