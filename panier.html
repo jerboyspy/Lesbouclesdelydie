@@ -42,20 +42,26 @@
         let panier = [];
         let totalGlobal = 0;
         let fraisPortAppliques = 4.50;
+        let reglagePort = { prix: 4.50, gratuit_des: 50 };
 
         async function chargerDonnees() {
             try {
+                // 1. Récupérer les réglages de livraison réels depuis Supabase
+                const { data: stats } = await _supabase.from('statistiques').select('livraison_prix, livraison_gratuite').eq('id', 1).maybeSingle();
+                if (stats) {
+                    reglagePort.prix = parseFloat(stats.livraison_prix) || 4.50;
+                    reglagePort.gratuit_des = parseFloat(stats.livraison_gratuite) || 50;
+                }
+
                 const data = localStorage.getItem('panier');
                 panier = data ? JSON.parse(data) : [];
                 
                 if (panier.length > 0) {
                    const ids = panier.map(p => p.id);
-                   // Correction : On ajoute 'reference' dans le select
                    const { data: prods } = await _supabase.from('produits').select('id, image, titre, prix, reference').in('id', ids);
                    if (prods) {
                        panier = panier.map(item => {
                            const extra = prods.find(p => p.id === item.id);
-                           // Correction : On inclut la référence dans l'objet item
                            return extra ? { ...item, image: extra.image, titre: extra.titre, prix: extra.prix, reference: extra.reference } : item;
                        });
                    }
@@ -113,11 +119,15 @@
             `).join('');
 
             const st = panier.reduce((sum, item) => sum + parseFloat(item.prix || 0), 0);
-            fraisPortAppliques = st >= 50 ? 0 : 4.50;
+            
+            // Calcul dynamique basé sur les réglages de la base de données
+            fraisPortAppliques = st >= reglagePort.gratuit_des ? 0 : reglagePort.prix;
             totalGlobal = st + fraisPortAppliques;
             
             document.getElementById('total-final').innerText = totalGlobal.toFixed(2) + "€";
-            document.getElementById('info-port').innerText = st >= 50 ? "🎉 Livraison offerte !" : `Port : ${fraisPortAppliques.toFixed(2)}€ (Offert dès 50€)`;
+            document.getElementById('info-port').innerText = st >= reglagePort.gratuit_des 
+                ? "🎉 Livraison offerte !" 
+                : `Port : ${fraisPortAppliques.toFixed(2)}€ (Offert dès ${reglagePort.gratuit_des.toFixed(0)}€)`;
         }
 
         async function validerCommande() {
@@ -136,7 +146,6 @@
             btn.disabled = true;
             btn.innerText = "⏳ ENREGISTREMENT...";
 
-            // Correction : Utilisation de la référence dans le texte récapitulatif
             const listeTxt = panier.map(p => `- ${p.titre} (Réf: #${p.reference || p.id}) - ${parseFloat(p.prix).toFixed(2)}€`).join('\n');
 
             try {
