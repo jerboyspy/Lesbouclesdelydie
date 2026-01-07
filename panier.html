@@ -48,14 +48,15 @@
                 const data = localStorage.getItem('panier');
                 panier = data ? JSON.parse(data) : [];
                 
-                // Récupération automatique des images depuis Supabase si absentes
                 if (panier.length > 0) {
                    const ids = panier.map(p => p.id);
-                   const { data: prods } = await _supabase.from('produits').select('id, image, titre, prix').in('id', ids);
+                   // Correction : On ajoute 'reference' dans le select
+                   const { data: prods } = await _supabase.from('produits').select('id, image, titre, prix, reference').in('id', ids);
                    if (prods) {
                        panier = panier.map(item => {
                            const extra = prods.find(p => p.id === item.id);
-                           return extra ? { ...item, image: extra.image, titre: extra.titre, prix: extra.prix } : item;
+                           // Correction : On inclut la référence dans l'objet item
+                           return extra ? { ...item, image: extra.image, titre: extra.titre, prix: extra.prix, reference: extra.reference } : item;
                        });
                    }
                 }
@@ -99,7 +100,7 @@
                         <img src="${item.image || 'https://via.placeholder.com/100'}" class="w-14 h-14 rounded-2xl object-cover shadow-sm">
                         <div>
                             <p class="font-black text-xs text-gray-800 leading-tight">${item.titre}</p>
-                            <p class="text-[9px] text-pink-400 font-bold uppercase mt-0.5">Réf: #${item.id}</p>
+                            <p class="text-[9px] text-pink-400 font-bold uppercase mt-0.5">Réf: #${item.reference || item.id}</p>
                             <p class="text-pink-600 font-black text-sm mt-1">${parseFloat(item.prix).toFixed(2)}€</p>
                         </div>
                     </div>
@@ -130,16 +131,15 @@
             if (!nom || telRaw.length < 10 || !adresse) return alert("⚠️ Merci de vérifier tes coordonnées.");
 
             const btn = document.getElementById('btn-valider');
-            if (btn.disabled) return; // Évite les doubles clics
+            if (btn.disabled) return;
 
             btn.disabled = true;
             btn.innerText = "⏳ ENREGISTREMENT...";
 
-            // Formatage de la liste avec Références pour Lydie
-            const listeTxt = panier.map(p => `- ${p.titre} (Réf: #${p.id}) - ${parseFloat(p.prix).toFixed(2)}€`).join('\n');
+            // Correction : Utilisation de la référence dans le texte récapitulatif
+            const listeTxt = panier.map(p => `- ${p.titre} (Réf: #${p.reference || p.id}) - ${parseFloat(p.prix).toFixed(2)}€`).join('\n');
 
             try {
-                // Mise à jour du profil client
                 await _supabase.from('profils').upsert({
                     email: user.email.toLowerCase(),
                     nom_prenom: nom,
@@ -147,7 +147,6 @@
                     telephone: telRaw
                 }, { onConflict: 'email' });
 
-                // Insertion de la commande
                 const { error } = await _supabase.from('commande').insert([{
                     client_email: user.email.toLowerCase(),
                     nom_client: nom,
@@ -159,7 +158,6 @@
 
                 if (error) throw error;
 
-                // Message WhatsApp formaté pour la lecture facile
                 const messageWA = encodeURIComponent(`Coucou Lydie ! 🌸\nJe souhaite commander :\n\n${listeTxt}\n\n*TOTAL : ${totalGlobal.toFixed(2)}€*\n\nMes coordonnées :\nNom : ${nom}\nTél : ${telRaw}\nAdresse : ${adresse}`);
                 
                 localStorage.removeItem('panier');
