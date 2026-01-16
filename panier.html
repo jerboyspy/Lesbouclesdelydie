@@ -42,38 +42,43 @@
     <script>
         const _supabase = supabase.createClient("https://rsebvgdneetbbmdchwil.supabase.co", "sb_publishable_c_U9tbQzawyqAVuLTEYWWA_XBW6Fbs6");
         let panier = [];
-        let catalogueProduits = []; 
         let totalGlobal = 0;
         let reglagePort = { prix: 4.50, gratuit_des: 50 };
 
         async function chargerDonnees() {
             try {
-                // 1. Charger les frais de port
+                // 1. Charger les réglages de port
                 const { data: stats } = await _supabase.from('statistiques').select('*').eq('id', 1).maybeSingle();
                 if (stats) {
                     reglagePort.prix = parseFloat(stats.livraison_prix) || 4.50;
                     reglagePort.gratuit_des = parseFloat(stats.livraison_gratuite) || 50;
                 }
 
-                // 2. Charger tout le catalogue pour avoir les bonnes images (Logique Admin)
-                const { data: prods } = await _supabase.from('produits').select('id, image, titre, prix, reference');
-                catalogueProduits = prods || [];
+                // 2. Charger le panier local
+                const localData = localStorage.getItem('panier');
+                let panierTemp = localData ? JSON.parse(localData) : [];
 
-                // 3. Charger le panier local
-                const data = localStorage.getItem('panier');
-                const panierLocal = data ? JSON.parse(data) : [];
-                
-                // 4. Fusionner pour garantir l'affichage de l'image
-                panier = panierLocal.map(item => {
-                    const infoBDD = catalogueProduits.find(p => p.id == item.id);
-                    return infoBDD ? { ...item, ...infoBDD } : item;
-                });
+                if (panierTemp.length > 0) {
+                    // 3. Forcer la récupération des images et infos fraîches depuis Supabase
+                    const ids = panierTemp.map(p => p.id);
+                    const { data: bddProds } = await _supabase.from('produits').select('*').in('id', ids);
 
-            } catch (e) { console.error("Erreur de chargement:", e); }
+                    if (bddProds) {
+                        panier = panierTemp.map(item => {
+                            const found = bddProds.find(p => p.id == item.id);
+                            return found ? { ...item, ...found } : item;
+                        });
+                    } else {
+                        panier = panierTemp;
+                    }
+                } else {
+                    panier = [];
+                }
+            } catch (e) { console.error(e); }
             
             afficherPanier();
 
-            // Pré-remplir le profil
+            // 4. Profil utilisateur
             const user = netlifyIdentity.currentUser();
             if (user) {
                 const { data: profil } = await _supabase.from('profils').select('*').eq('email', user.email.toLowerCase()).maybeSingle();
@@ -83,6 +88,12 @@
                     document.getElementById('client-adresse').value = profil.adresse || "";
                 }
             }
+        }
+
+        function supprimerArticle(index) {
+            panier.splice(index, 1);
+            localStorage.setItem('panier', JSON.stringify(panier));
+            afficherPanier();
         }
 
         function afficherPanier() {
@@ -95,16 +106,13 @@
             }
 
             container.innerHTML = panier.map((item, index) => {
-                // Gestion de l'image comme dans admin-commandes.html
-                const imgUrl = item.image ? item.image : null;
-
                 return `
                 <div class="flex items-center justify-between bg-white p-3 pr-4 rounded-3xl shadow-sm border border-gray-100">
                     <div class="flex items-center gap-4">
-                        <div class="w-14 h-14 bg-gray-100 rounded-2xl overflow-hidden shadow-sm flex-shrink-0">
-                            ${imgUrl ? 
-                                `<img src="${imgUrl}" class="w-full h-full object-cover">` : 
-                                `<div class="w-full h-full flex items-center justify-center text-[10px] text-gray-300 font-bold uppercase">REF ${item.id}</div>`
+                        <div class="w-14 h-14 bg-gray-100 rounded-2xl overflow-hidden shadow-sm flex-shrink-0 flex items-center justify-center">
+                            ${item.image ? 
+                                `<img src="${item.image}" class="w-full h-full object-cover">` : 
+                                `<span class="text-[8px] text-gray-400 font-bold uppercase text-center p-1">REF ${item.reference || item.id}</span>`
                             }
                         </div>
                         <div>
@@ -131,12 +139,6 @@
                 : `PORT : ${fraisPort.toFixed(2)}€ (OFFERT DÈS ${reglagePort.gratuit_des.toFixed(0)}€)`;
         }
 
-        function supprimerArticle(index) {
-            panier.splice(index, 1);
-            localStorage.setItem('panier', JSON.stringify(panier));
-            afficherPanier();
-        }
-
         async function validerCommande() {
             const user = netlifyIdentity.currentUser();
             if (!user) return netlifyIdentity.open();
@@ -148,13 +150,12 @@
             if (!nom || telRaw.length < 10 || !adresse) return alert("⚠️ Merci de vérifier tes coordonnées.");
 
             const btn = document.getElementById('btn-valider');
+            if (btn.disabled) return;
             btn.disabled = true;
             btn.innerText = "⏳ ENREGISTREMENT...";
 
-            // Préparation de la liste avec liens photos pour Lydie
-            const listeTxt = panier.map(p => {
-                return `- ${p.titre} (#${p.reference || p.id}) - ${parseFloat(p.prix).toFixed(2)}€\n  Photo: ${p.image || 'N/A'}`;
-            }).join('\n');
+            // Ici, on s'assure que l'image est bien envoyée dans le texte de la commande
+            const listeTxt = panier.map(p => `- ${p.titre} (#${p.reference || p.id}) - ${parseFloat(p.prix).toFixed(2)}€\n  Photo: ${p.image || 'N/A'}`).join('\n');
 
             try {
                 await _supabase.from('profils').upsert({
@@ -188,7 +189,7 @@
             }
         }
 
-        netlifyIdentity.on('init', user => chargerDonnees());
+        netlifyIdentity.on('init', () => chargerDonnees());
         netlifyIdentity.on('login', () => chargerDonnees());
         document.addEventListener("DOMContentLoaded", () => { setTimeout(chargerDonnees, 300); });
     </script>
