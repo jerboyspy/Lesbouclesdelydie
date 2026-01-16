@@ -46,7 +46,6 @@
 
         async function chargerDonnees() {
             try {
-                // 1. Récupérer les réglages de livraison réels depuis Supabase
                 const { data: stats } = await _supabase.from('statistiques').select('livraison_prix, livraison_gratuite').eq('id', 1).maybeSingle();
                 if (stats) {
                     reglagePort.prix = parseFloat(stats.livraison_prix) || 4.50;
@@ -100,10 +99,19 @@
                 return;
             }
 
-            container.innerHTML = panier.map((item, index) => `
+            container.innerHTML = panier.map((item, index) => {
+                // Correction de l'URL de l'image
+                let imgUrl = item.image;
+                if (imgUrl && !imgUrl.startsWith('http')) {
+                    imgUrl = `https://rsebvgdneetbbmdchwil.supabase.co/storage/v1/object/public/images/${imgUrl.split('/').pop()}`;
+                }
+
+                return `
                 <div class="flex items-center justify-between bg-white p-3 pr-4 rounded-3xl shadow-sm border border-gray-100">
                     <div class="flex items-center gap-4">
-                        <img src="${item.image || 'https://via.placeholder.com/100'}" class="w-14 h-14 rounded-2xl object-cover shadow-sm">
+                        <img src="${imgUrl || 'https://via.placeholder.com/100'}" 
+                             onerror="this.src='https://via.placeholder.com/100'"
+                             class="w-14 h-14 rounded-2xl object-cover shadow-sm">
                         <div>
                             <p class="font-black text-xs text-gray-800 leading-tight">${item.titre}</p>
                             <p class="text-[9px] text-pink-400 font-bold uppercase mt-0.5">Réf: #${item.reference || item.id}</p>
@@ -115,12 +123,10 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
                     </button>
-                </div>
-            `).join('');
+                </div>`;
+            }).join('');
 
             const st = panier.reduce((sum, item) => sum + parseFloat(item.prix || 0), 0);
-            
-            // Calcul dynamique basé sur les réglages de la base de données
             fraisPortAppliques = st >= reglagePort.gratuit_des ? 0 : reglagePort.prix;
             totalGlobal = st + fraisPortAppliques;
             
@@ -146,7 +152,14 @@
             btn.disabled = true;
             btn.innerText = "⏳ ENREGISTREMENT...";
 
-            const listeTxt = panier.map(p => `- ${p.titre} (Réf: #${p.reference || p.id}) - ${parseFloat(p.prix).toFixed(2)}€`).join('\n');
+            // On prépare le texte avec les URLs d'images pour WhatsApp et la DB
+            const listeTxt = panier.map(p => {
+                let pImg = p.image;
+                if (pImg && !pImg.startsWith('http')) {
+                    pImg = `https://rsebvgdneetbbmdchwil.supabase.co/storage/v1/object/public/images/${pImg.split('/').pop()}`;
+                }
+                return `- ${p.titre} (Réf: #${p.reference || p.id}) - ${parseFloat(p.prix).toFixed(2)}€\n  Photo: ${pImg}`;
+            }).join('\n\n');
 
             try {
                 await _supabase.from('profils').upsert({
