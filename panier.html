@@ -48,31 +48,32 @@
 
         async function chargerDonnees() {
             try {
-                // 1. Réglages Livraison
+                // 1. Charger les frais de port
                 const { data: stats } = await _supabase.from('statistiques').select('*').eq('id', 1).maybeSingle();
                 if (stats) {
                     reglagePort.prix = parseFloat(stats.livraison_prix) || 4.50;
                     reglagePort.gratuit_des = parseFloat(stats.livraison_gratuite) || 50;
                 }
 
-                // 2. Charger tout le catalogue (Méthode Admin qui marche)
+                // 2. Charger tout le catalogue pour avoir les bonnes images (Logique Admin)
                 const { data: prods } = await _supabase.from('produits').select('id, image, titre, prix, reference');
                 catalogueProduits = prods || [];
 
-                // 3. Charger panier local
+                // 3. Charger le panier local
                 const data = localStorage.getItem('panier');
                 const panierLocal = data ? JSON.parse(data) : [];
                 
-                // 4. Fusionner les infos BDD pour avoir les images à jour
+                // 4. Fusionner pour garantir l'affichage de l'image
                 panier = panierLocal.map(item => {
                     const infoBDD = catalogueProduits.find(p => p.id == item.id);
                     return infoBDD ? { ...item, ...infoBDD } : item;
                 });
 
-            } catch (e) { console.error(e); }
+            } catch (e) { console.error("Erreur de chargement:", e); }
             
             afficherPanier();
 
+            // Pré-remplir le profil
             const user = netlifyIdentity.currentUser();
             if (user) {
                 const { data: profil } = await _supabase.from('profils').select('*').eq('email', user.email.toLowerCase()).maybeSingle();
@@ -82,12 +83,6 @@
                     document.getElementById('client-adresse').value = profil.adresse || "";
                 }
             }
-        }
-
-        function supprimerArticle(index) {
-            panier.splice(index, 1);
-            localStorage.setItem('panier', JSON.stringify(panier));
-            afficherPanier();
         }
 
         function afficherPanier() {
@@ -100,19 +95,17 @@
             }
 
             container.innerHTML = panier.map((item, index) => {
-                // On s'assure que l'image est bien au format URL (comme dans ton admin)
-                let imgHtml = "";
-                if (item.image) {
-                    imgHtml = `<img src="${item.image}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/100'">`;
-                } else {
-                    imgHtml = `<div class="w-full h-full flex items-center justify-center text-[8px] color-[#ccc]">REF ${item.id}</div>`;
-                }
+                // Gestion de l'image comme dans admin-commandes.html
+                const imgUrl = item.image ? item.image : null;
 
                 return `
                 <div class="flex items-center justify-between bg-white p-3 pr-4 rounded-3xl shadow-sm border border-gray-100">
                     <div class="flex items-center gap-4">
                         <div class="w-14 h-14 bg-gray-100 rounded-2xl overflow-hidden shadow-sm flex-shrink-0">
-                            ${imgHtml}
+                            ${imgUrl ? 
+                                `<img src="${imgUrl}" class="w-full h-full object-cover">` : 
+                                `<div class="w-full h-full flex items-center justify-center text-[10px] text-gray-300 font-bold uppercase">REF ${item.id}</div>`
+                            }
                         </div>
                         <div>
                             <p class="font-black text-[11px] text-gray-800 leading-tight uppercase">${item.titre || 'Produit'}</p>
@@ -135,7 +128,13 @@
             document.getElementById('total-final').innerText = totalGlobal.toFixed(2) + "€";
             document.getElementById('info-port').innerText = st >= reglagePort.gratuit_des 
                 ? "🎉 Livraison offerte !" 
-                : `Port : ${fraisPort.toFixed(2)}€ (Offert dès ${reglagePort.gratuit_des.toFixed(0)}€)`;
+                : `PORT : ${fraisPort.toFixed(2)}€ (OFFERT DÈS ${reglagePort.gratuit_des.toFixed(0)}€)`;
+        }
+
+        function supprimerArticle(index) {
+            panier.splice(index, 1);
+            localStorage.setItem('panier', JSON.stringify(panier));
+            afficherPanier();
         }
 
         async function validerCommande() {
@@ -152,7 +151,10 @@
             btn.disabled = true;
             btn.innerText = "⏳ ENREGISTREMENT...";
 
-            const listeTxt = panier.map(p => `- ${p.titre} (#${p.reference || p.id}) - ${parseFloat(p.prix).toFixed(2)}€`).join('\n');
+            // Préparation de la liste avec liens photos pour Lydie
+            const listeTxt = panier.map(p => {
+                return `- ${p.titre} (#${p.reference || p.id}) - ${parseFloat(p.prix).toFixed(2)}€\n  Photo: ${p.image || 'N/A'}`;
+            }).join('\n');
 
             try {
                 await _supabase.from('profils').upsert({
@@ -165,7 +167,7 @@
                 const { error } = await _supabase.from('commande').insert([{
                     client_email: user.email.toLowerCase(),
                     nom_client: nom,
-                    contenu: `CLIENT: ${nom}\nTEL: ${telRaw}\nADRESSE: ${adresse}\n\nPRODUITS:\n${listeTxt}`,
+                    contenu: `CLIENT: ${nom} TEL: ${telRaw} ADRESSE: ${adresse}\n\nPRODUITS:\n${listeTxt}`,
                     total: totalGlobal,
                     statut: 'En attente',
                     frais_port: totalGlobal >= reglagePort.gratuit_des ? 0 : reglagePort.prix
