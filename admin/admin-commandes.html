@@ -110,31 +110,43 @@
             } catch (e) { document.getElementById('total-visiteurs').innerText = "0"; }
         }
 
+        // --- FONCTION DE FORMATAGE POUR AFFICHAGE ---
         function formaterContenuCommande(texteBrut) {
             const lignes = texteBrut.split('\n');
             let html = "";
-            let currentProdId = null;
+            let prod = { nom: "", id: "", prix: "", qte: "x1", img: "" };
 
-            lignes.forEach(ligne => {
-                const l = ligne.trim();
-                if (l.startsWith('-')) {
-                    const match = l.match(/-\s*(.*?)\s*\(#(\d+)\)/);
+            lignes.forEach(l => {
+                const ligne = l.trim();
+                // Extraction Nom, Réf, Prix
+                if (ligne.startsWith('-')) {
+                    const match = ligne.match(/-\s*(.*?)\s*\(.*?#(\d+)\)\s*(?:-\s*([\d,.]+)\s*€)?/i);
                     if (match) {
-                        const nom = match[1];
-                        currentProdId = match[2];
-                        html += `<div class="flex items-center gap-3 py-2 border-b border-gray-100 last:border-0" id="row-${currentProdId}">
-                            <div id="img-cont-${currentProdId}" class="w-10 h-10 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0"></div>
-                            <div class="flex-1">
-                                <p class="text-[11px] font-bold text-gray-800"><span class="text-pink-500">x1</span> ${nom}</p>
-                                <p class="text-[8px] text-gray-400 font-bold uppercase">REF #${currentProdId}</p>
-                            </div>
-                        </div>`;
+                        prod.nom = match[1].trim();
+                        prod.id = match[2];
+                        prod.prix = match[3] ? match[3] + "€" : "";
                     }
-                } else if (l.includes('Photo: http') && currentProdId) {
-                    const url = l.split('Photo:')[1].trim();
-                    html = html.replace(`id="img-cont-${currentProdId}" class="w-10 h-10 bg-gray-100`, `id="img-cont-${currentProdId}" class="w-10 h-10 bg-gray-100 cursor-zoom-in" onclick="window.open('${url}')"`);
-                    html = html.replace(`id="img-cont-${currentProdId}" class="w-10 h-10 bg-gray-100 cursor-zoom-in" onclick="window.open('${url}')"></div>`, `id="img-cont-${currentProdId}" class="w-10 h-10 bg-gray-100 cursor-zoom-in" onclick="window.open('${url}')"><img src="${url}" class="w-full h-full object-cover"></div>`);
-                    currentProdId = null;
+                }
+                // Extraction Photo
+                if (ligne.includes('Photo:')) {
+                    const url = ligne.split('Photo:')[1]?.trim();
+                    if (url && url !== "undefined") prod.img = url;
+                    
+                    // On construit le bloc dès qu'on a la photo (fin du bloc produit)
+                    html += `
+                    <div class="flex items-center gap-3 py-2 border-b border-gray-100 last:border-0">
+                        <div class="w-12 h-12 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 border border-gray-100">
+                            ${prod.img ? `<img src="${prod.img}" class="w-full h-full object-cover">` : ''}
+                        </div>
+                        <div class="flex-1">
+                            <div class="flex justify-between items-start">
+                                <p class="text-[11px] font-bold text-gray-800 leading-tight">${prod.nom}</p>
+                                <span class="text-[10px] font-black text-pink-500">x1</span>
+                            </div>
+                            <p class="text-[9px] text-gray-400 font-bold uppercase">REF #${prod.id} ${prod.prix ? '• '+prod.prix : ''}</p>
+                        </div>
+                    </div>`;
+                    prod = { nom: "", id: "", prix: "", qte: "x1", img: "" };
                 }
             });
             return html || `<p class="italic text-[10px]">${texteBrut}</p>`;
@@ -143,17 +155,36 @@
         function imprimerEtiquette(bloc) {
             const nom = bloc.match(/CLIENT:\s*(.*)/i)?.[1] || "Client";
             const adresse = bloc.match(/ADRESSE:\s*([\s\S]*?)(?:\n\n|PRODUITS:|$)/i)?.[1]?.trim() || "Adresse non trouvée";
-            
-            const fenetre = window.open('', '', 'width=400,height=400');
+            const fenetre = window.open('', '', 'width=450,height=500');
+            fenetre.document.write(`<html><body style="font-family:sans-serif;padding:30px;text-align:center;"><div style="border:3px dashed #ffb6c1;padding:25px;border-radius:20px;background:#fff5f7;"><h2 style="color:#db2777;margin-top:0;">Destinataire :</h2><p style="font-size:22px;font-weight:bold;margin:10px 0;">${nom}</p><p style="font-size:18px;line-height:1.5;">${adresse.replace(/\n/g, '<br>')}</p></div><button onclick="window.print()" style="margin-top:20px;padding:12px 25px;background:#db2777;color:white;border:none;border-radius:12px;font-weight:bold;cursor:pointer;">Imprimer Étiquette</button></body></html>`);
+        }
+
+        // --- NOUVELLE FONCTION POUR IMPRIMER LA LISTE DES PRODUITS ---
+        function imprimerListePreparation(bloc, client) {
+            const listeHtml = formaterContenuCommande(bloc);
+            const fenetre = window.open('', '', 'width=600,height=800');
             fenetre.document.write(`
                 <html>
-                <body style="font-family:sans-serif; padding:40px; text-align:center;">
-                    <div style="border:2px dashed #ffb6c1; padding:20px; border-radius:15px;">
-                        <h2 style="color:#db2777; margin-bottom:5px;">Destinataire :</h2>
-                        <p style="font-size:20px; font-weight:bold; margin:10px 0;">${nom}</p>
-                        <p style="font-size:18px; line-height:1.4;">${adresse.replace(/\n/g, '<br>')}</p>
+                <head><style>
+                    body { font-family: sans-serif; padding: 20px; color: #333; }
+                    .header { text-align: center; border-bottom: 2px solid #db2777; padding-bottom: 10px; margin-bottom: 20px; }
+                    .client { font-weight: bold; color: #db2777; font-size: 1.2em; }
+                    .item { display: flex; align-items: center; gap: 15px; border-bottom: 1px solid #eee; padding: 10px 0; }
+                    .img { width: 60px; height: 60px; object-cover; border-radius: 8px; border: 1px solid #ddd; }
+                    .details { flex-grow: 1; }
+                    .ref { font-size: 0.8em; color: #888; font-weight: bold; }
+                    .qte { font-weight: bold; color: #db2777; font-size: 1.1em; }
+                    @media print { .no-print { display: none; } }
+                </style></head>
+                <body>
+                    <div class="header">
+                        <h1>Préparation Commande</h1>
+                        <p class="client">${client}</p>
                     </div>
-                    <button onclick="window.print()" style="margin-top:20px; padding:10px 20px; background:#db2777; color:white; border:none; border-radius:10px; font-weight:bold; cursor:pointer;">Imprimer l'étiquette</button>
+                    <div>${listeHtml}</div>
+                    <div style="margin-top:30px; text-align:center;" class="no-print">
+                        <button onclick="window.print()" style="padding:15px 30px; background:#db2777; color:white; border:none; border-radius:10px; font-weight:bold;">Imprimer la liste de préparation</button>
+                    </div>
                 </body>
                 </html>
             `);
@@ -169,7 +200,7 @@
             const depensesParClient = {};
             
             data.forEach(c => {
-                const email = c.client_email.toLowerCase();
+                const email = (c.client_email || "anonyme").toLowerCase();
                 if (c.statut === 'Clôturée') {
                     const mois = new Date(c.created_at).toLocaleString('fr-FR', { month: 'long', year: 'numeric' });
                     const net = (parseFloat(c.total) || 0) - (parseFloat(c.frais_port) || 0);
@@ -204,9 +235,9 @@
                 const sColors = { 'En attente': 'bg-orange-100 text-orange-700', 'Validée': 'bg-green-100 text-green-700', 'Payée': 'bg-blue-100 text-blue-700', 'Expédiée': 'bg-purple-100 text-purple-700', 'Clôturée': 'bg-gray-200 text-gray-500' };
                 const portParDefaut = (c.frais_port !== undefined && c.frais_port !== null) ? c.frais_port : (parseFloat(c.total) >= parseFloat(document.getElementById('global-seuil').value) ? 0 : parseFloat(document.getElementById('global-port').value));
 
-                const msgValide = `Coucou 🌸 C'est Lydie. Ta commande est validée ! ✅\nTotal à régler : ${parseFloat(c.total).toFixed(2)}€.\nTu peux faire ton Wero sur mon numéro. Une fois fait, préviens-moi ici ! ✨`;
-                const msgPaye = `💰 Coucou ! J'ai bien reçu ton paiement. ✨ Je prépare ton colis avec amour. Lydie`;
-                const msgExpedie = `📦 Bonne nouvelle ! Ton colis Les Boucles de Lydie est en route ! 🌸`;
+                const msgValide = `Coucou 🌸 C'est Lydie. Ta commande est validée ! ✅\nTotal à régler : ${parseFloat(c.total).toFixed(2)}€.\nTu peux faire ton Wero sur mon numéro. ✨`;
+                const msgPaye = `💰 Coucou ! J'ai bien reçu ton paiement. ✨ Je prépare ton colis.`;
+                const msgExpedie = `📦 Ton colis Les Boucles de Lydie est en route ! 🌸`;
 
                 const contenuJS = c.contenu.replace(/[`'"]/g, " ");
 
@@ -227,26 +258,27 @@
                     ${c.statut !== 'Clôturée' ? `
                     <div class="bg-pink-50/50 p-3 rounded-2xl border border-pink-100 mb-4 space-y-3">
                         <div class="flex justify-between items-center">
-                            <label class="text-[10px] font-bold text-pink-400 uppercase">Frais de Port (€)</label>
+                            <label class="text-[10px] font-bold text-pink-400 uppercase">Port (€)</label>
                             <input type="number" id="port-${c.id}" value="${portParDefaut}" step="0.10" class="w-20 p-1 text-right rounded-lg border-none bg-white text-sm font-bold shadow-sm outline-none ring-1 ring-pink-200">
                         </div>
                         <div class="flex justify-between items-center">
-                            <label class="text-[10px] font-bold text-pink-400 uppercase">Total Client (€)</label>
+                            <label class="text-[10px] font-bold text-pink-400 uppercase">Total (€)</label>
                             <input type="number" id="prix-final-${c.id}" value="${c.total}" step="0.01" class="w-24 p-1 text-right rounded-lg border-none bg-white text-sm font-bold shadow-sm outline-none ring-1 ring-pink-200">
                         </div>
                     </div>
 
                     <div class="grid grid-cols-2 gap-2">
                         ${c.statut === 'En attente' ? 
-                            `<button onclick="validerAction('${c.id}', \`${contenuJS}\`, \`${msgValide}\` )" class="col-span-2 bg-green-500 text-white py-3 rounded-xl text-[10px] font-black uppercase shadow-md active:scale-95 transition">✅ Valider & WhatsApp Client</button>` :
-                            `<button onclick="ouvrirWhatsApp(\`${contenuJS}\`, \`${c.statut === 'Validée' ? msgValide : (c.statut === 'Payée' ? msgPaye : msgExpedie)}\` )" class="col-span-2 bg-gray-100 text-gray-600 py-3 rounded-xl text-[10px] font-black uppercase border border-gray-200 mb-2">📲 Renvoyer WhatsApp (${c.statut})</button>`
+                            `<button onclick="validerAction('${c.id}', \`${contenuJS}\`, \`${msgValide}\` )" class="col-span-2 bg-green-500 text-white py-3 rounded-xl text-[10px] font-black uppercase shadow-md active:scale-95 transition">✅ Valider & WhatsApp</button>` :
+                            `<button onclick="ouvrirWhatsApp(\`${contenuJS}\`, \`${c.statut === 'Validée' ? msgValide : (c.statut === 'Payée' ? msgPaye : msgExpedie)}\` )" class="col-span-2 bg-gray-100 text-gray-600 py-3 rounded-xl text-[10px] font-black uppercase border border-gray-200 mb-2">📲 Renvoyer WhatsApp</button>`
                         }
-                        <button onclick="changerStatut('${c.id}', 'Payée', \`${msgPaye}\`, \`${contenuJS}\` )" class="bg-blue-500 text-white py-2 rounded-xl text-[10px] font-black uppercase">💰 Payée</button>
-                        <button onclick="changerStatut('${c.id}', 'Expédiée', \`${msgExpedie}\`, \`${contenuJS}\` )" class="bg-purple-500 text-white py-2 rounded-xl text-[10px] font-black uppercase">📦 Expédiée</button>
+                        <button onclick="changerStatut('${c.id}', 'Payée', \`${msgPaye}\`, \`${contenuJS}\` )" class="bg-blue-500 text-white py-2.5 rounded-xl text-[10px] font-black uppercase">💰 Payée</button>
+                        <button onclick="changerStatut('${c.id}', 'Expédiée', \`${msgExpedie}\`, \`${contenuJS}\` )" class="bg-purple-500 text-white py-2.5 rounded-xl text-[10px] font-black uppercase">📦 Expédiée</button>
                         
-                        <button onclick="imprimerEtiquette(\`${contenuJS}\`)" class="col-span-2 mt-2 bg-pink-100 text-pink-600 py-3 rounded-xl text-[10px] font-black uppercase border border-pink-200">🏷️ Voir l'Étiquette Client</button>
+                        <button onclick="imprimerListePreparation(\`${contenuJS}\`, '${c.nom_client || 'Client'}')" class="col-span-2 mt-2 bg-gray-800 text-white py-3 rounded-xl text-[10px] font-black uppercase border border-gray-700">📝 Imprimer Liste Préparation</button>
+                        <button onclick="imprimerEtiquette(\`${contenuJS}\`)" class="col-span-2 bg-pink-100 text-pink-600 py-3 rounded-xl text-[10px] font-black uppercase border border-pink-200">🏷️ Voir l'Étiquette Client</button>
 
-                        ${c.statut === 'Expédiée' ? `<button onclick="cloturerCommande('${c.id}')" class="col-span-2 mt-2 bg-gray-800 text-white py-3 rounded-xl text-[10px] font-black uppercase shadow-inner">🏁 Clôturer la vente</button>` : ''}
+                        ${c.statut === 'Expédiée' ? `<button onclick="cloturerCommande('${c.id}')" class="col-span-2 mt-2 bg-gray-200 text-gray-800 py-3 rounded-xl text-[10px] font-black uppercase shadow-inner">🏁 Clôturer la vente</button>` : ''}
                     </div>
                     ` : '<p class="text-center text-[10px] font-bold text-gray-400 py-2 uppercase tracking-widest">✅ Commande Terminée</p>'}
 
