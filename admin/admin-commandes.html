@@ -82,7 +82,6 @@
             }
         });
 
-        // NOUVEAU : Récupère les prix réels
         async function chargerReglagesPort() {
             const { data } = await _supabase.from('statistiques').select('*').eq('id', 1).maybeSingle();
             if (data) {
@@ -91,7 +90,6 @@
             }
         }
 
-        // NOUVEAU : Sauvegarde les prix pour tout le site
         async function sauvegarderReglagesPort() {
             const btn = document.getElementById('btn-save-port');
             const prix = parseFloat(document.getElementById('global-port').value);
@@ -114,33 +112,51 @@
 
         function formaterContenuCommande(texteBrut) {
             const lignes = texteBrut.split('\n');
-            const produits = {};
+            let html = "";
+            let currentProdId = null;
+
             lignes.forEach(ligne => {
-                if (ligne.trim().startsWith('-')) {
-                    const match = ligne.match(/-\s*(.*?)\s*\(#(\d+)\)/);
+                const l = ligne.trim();
+                if (l.startsWith('-')) {
+                    const match = l.match(/-\s*(.*?)\s*\(#(\d+)\)/);
                     if (match) {
-                        const nom = match[1].trim();
-                        const id = match[2];
-                        const cle = `${nom}_${id}`;
-                        if (!produits[cle]) produits[cle] = { nom, id, qte: 1 };
-                        else produits[cle].qte++;
-                    } else {
-                        const nomSimple = ligne.replace('-', '').split('(')[0].trim();
-                        if (nomSimple) {
-                            if (!produits[nomSimple]) produits[nomSimple] = { nom: nomSimple, id: "?", qte: 1 };
-                            else produits[nomSimple].qte++;
-                        }
+                        const nom = match[1];
+                        currentProdId = match[2];
+                        html += `<div class="flex items-center gap-3 py-2 border-b border-gray-100 last:border-0" id="row-${currentProdId}">
+                            <div id="img-cont-${currentProdId}" class="w-10 h-10 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0"></div>
+                            <div class="flex-1">
+                                <p class="text-[11px] font-bold text-gray-800"><span class="text-pink-500">x1</span> ${nom}</p>
+                                <p class="text-[8px] text-gray-400 font-bold uppercase">REF #${currentProdId}</p>
+                            </div>
+                        </div>`;
                     }
+                } else if (l.includes('Photo: http') && currentProdId) {
+                    const url = l.split('Photo:')[1].trim();
+                    html = html.replace(`id="img-cont-${currentProdId}" class="w-10 h-10 bg-gray-100`, `id="img-cont-${currentProdId}" class="w-10 h-10 bg-gray-100 cursor-zoom-in" onclick="window.open('${url}')"`);
+                    html = html.replace(`id="img-cont-${currentProdId}" class="w-10 h-10 bg-gray-100 cursor-zoom-in" onclick="window.open('${url}')"></div>`, `id="img-cont-${currentProdId}" class="w-10 h-10 bg-gray-100 cursor-zoom-in" onclick="window.open('${url}')"><img src="${url}" class="w-full h-full object-cover"></div>`);
+                    currentProdId = null;
                 }
             });
-            let resultat = "";
-            Object.values(produits).forEach(p => {
-                resultat += `<div class="flex justify-between items-center py-1 border-b border-gray-100 last:border-0">
-                    <span><span class="font-black text-pink-500">x${p.qte}</span> ${p.nom}</span>
-                    <span class="text-[8px] bg-gray-100 px-1.5 py-0.5 rounded text-gray-400 font-bold">REF #${p.id}</span>
-                </div>`;
-            });
-            return resultat || `<p class="italic">${texteBrut}</p>`;
+            return html || `<p class="italic text-[10px]">${texteBrut}</p>`;
+        }
+
+        function imprimerEtiquette(bloc) {
+            const nom = bloc.match(/CLIENT:\s*(.*)/i)?.[1] || "Client";
+            const adresse = bloc.match(/ADRESSE:\s*([\s\S]*?)(?:\n\n|PRODUITS:|$)/i)?.[1]?.trim() || "Adresse non trouvée";
+            
+            const fenetre = window.open('', '', 'width=400,height=400');
+            fenetre.document.write(`
+                <html>
+                <body style="font-family:sans-serif; padding:40px; text-align:center;">
+                    <div style="border:2px dashed #ffb6c1; padding:20px; border-radius:15px;">
+                        <h2 style="color:#db2777; margin-bottom:5px;">Destinataire :</h2>
+                        <p style="font-size:20px; font-weight:bold; margin:10px 0;">${nom}</p>
+                        <p style="font-size:18px; line-height:1.4;">${adresse.replace(/\n/g, '<br>')}</p>
+                    </div>
+                    <button onclick="window.print()" style="margin-top:20px; padding:10px 20px; background:#db2777; color:white; border:none; border-radius:10px; font-weight:bold; cursor:pointer;">Imprimer l'étiquette</button>
+                </body>
+                </html>
+            `);
         }
 
         async function chargerCommandes() {
@@ -204,7 +220,7 @@
                         <span class="text-[9px] font-black px-2 py-1 rounded-full uppercase ${sColors[c.statut]}">${c.statut}</span>
                     </div>
 
-                    <div class="bg-gray-50 p-4 rounded-2xl text-[11px] text-gray-600 mb-4 border border-gray-100/50">
+                    <div class="bg-gray-50 p-3 rounded-2xl mb-4 border border-gray-100/50">
                         ${formaterContenuCommande(c.contenu)}
                     </div>
 
@@ -227,6 +243,9 @@
                         }
                         <button onclick="changerStatut('${c.id}', 'Payée', \`${msgPaye}\`, \`${contenuJS}\` )" class="bg-blue-500 text-white py-2 rounded-xl text-[10px] font-black uppercase">💰 Payée</button>
                         <button onclick="changerStatut('${c.id}', 'Expédiée', \`${msgExpedie}\`, \`${contenuJS}\` )" class="bg-purple-500 text-white py-2 rounded-xl text-[10px] font-black uppercase">📦 Expédiée</button>
+                        
+                        <button onclick="imprimerEtiquette(\`${contenuJS}\`)" class="col-span-2 mt-2 bg-pink-100 text-pink-600 py-3 rounded-xl text-[10px] font-black uppercase border border-pink-200">🏷️ Voir l'Étiquette Client</button>
+
                         ${c.statut === 'Expédiée' ? `<button onclick="cloturerCommande('${c.id}')" class="col-span-2 mt-2 bg-gray-800 text-white py-3 rounded-xl text-[10px] font-black uppercase shadow-inner">🏁 Clôturer la vente</button>` : ''}
                     </div>
                     ` : '<p class="text-center text-[10px] font-bold text-gray-400 py-2 uppercase tracking-widest">✅ Commande Terminée</p>'}
