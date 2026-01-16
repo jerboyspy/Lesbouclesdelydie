@@ -42,46 +42,44 @@
     <script>
         const _supabase = supabase.createClient("https://rsebvgdneetbbmdchwil.supabase.co", "sb_publishable_c_U9tbQzawyqAVuLTEYWWA_XBW6Fbs6");
         let panier = [];
+        let catalogueProduits = []; 
         let totalGlobal = 0;
-        let fraisPortAppliques = 4.50;
         let reglagePort = { prix: 4.50, gratuit_des: 50 };
 
         async function chargerDonnees() {
             try {
-                // 1. Charger les réglages de port
-                const { data: stats } = await _supabase.from('statistiques').select('livraison_prix, livraison_gratuite').eq('id', 1).maybeSingle();
+                // 1. Réglages Livraison
+                const { data: stats } = await _supabase.from('statistiques').select('*').eq('id', 1).maybeSingle();
                 if (stats) {
                     reglagePort.prix = parseFloat(stats.livraison_prix) || 4.50;
                     reglagePort.gratuit_des = parseFloat(stats.livraison_gratuite) || 50;
                 }
 
-                // 2. Charger le panier local
+                // 2. Charger tout le catalogue (Méthode Admin qui marche)
+                const { data: prods } = await _supabase.from('produits').select('id, image, titre, prix, reference');
+                catalogueProduits = prods || [];
+
+                // 3. Charger panier local
                 const data = localStorage.getItem('panier');
-                panier = data ? JSON.parse(data) : [];
+                const panierLocal = data ? JSON.parse(data) : [];
                 
-                // 3. Rafraîchir les infos produits (prix et surtout IMAGE) depuis la base
-                if (panier.length > 0) {
-                   const ids = panier.map(p => p.id);
-                   const { data: prods } = await _supabase.from('produits').select('id, image, titre, prix, reference').in('id', ids);
-                   if (prods) {
-                       panier = panier.map(item => {
-                           const bddProd = prods.find(p => p.id === item.id);
-                           return bddProd ? { ...item, ...bddProd } : item;
-                       });
-                   }
-                }
+                // 4. Fusionner les infos BDD pour avoir les images à jour
+                panier = panierLocal.map(item => {
+                    const infoBDD = catalogueProduits.find(p => p.id == item.id);
+                    return infoBDD ? { ...item, ...infoBDD } : item;
+                });
+
             } catch (e) { console.error(e); }
             
             afficherPanier();
 
-            // 4. Pré-remplir le profil si connecté
             const user = netlifyIdentity.currentUser();
             if (user) {
-                const { data: profil } = await _supabase.from('profils').select('nom_prenom, adresse, telephone').eq('email', user.email.toLowerCase()).maybeSingle();
+                const { data: profil } = await _supabase.from('profils').select('*').eq('email', user.email.toLowerCase()).maybeSingle();
                 if (profil) {
-                    if(profil.nom_prenom) document.getElementById('client-nom').value = profil.nom_prenom;
-                    if(profil.telephone) document.getElementById('client-tel').value = profil.telephone;
-                    if(profil.adresse) document.getElementById('client-adresse').value = profil.adresse;
+                    document.getElementById('client-nom').value = profil.nom_prenom || "";
+                    document.getElementById('client-tel').value = profil.telephone || "";
+                    document.getElementById('client-adresse').value = profil.adresse || "";
                 }
             }
         }
@@ -102,18 +100,24 @@
             }
 
             container.innerHTML = panier.map((item, index) => {
+                // On s'assure que l'image est bien au format URL (comme dans ton admin)
+                let imgHtml = "";
+                if (item.image) {
+                    imgHtml = `<img src="${item.image}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/100'">`;
+                } else {
+                    imgHtml = `<div class="w-full h-full flex items-center justify-center text-[8px] color-[#ccc]">REF ${item.id}</div>`;
+                }
+
                 return `
                 <div class="flex items-center justify-between bg-white p-3 pr-4 rounded-3xl shadow-sm border border-gray-100">
                     <div class="flex items-center gap-4">
                         <div class="w-14 h-14 bg-gray-100 rounded-2xl overflow-hidden shadow-sm flex-shrink-0">
-                            <img src="${item.image || 'https://via.placeholder.com/100'}" 
-                                 class="w-full h-full object-cover"
-                                 onerror="this.src='https://via.placeholder.com/100'">
+                            ${imgHtml}
                         </div>
                         <div>
-                            <p class="font-black text-[11px] text-gray-800 leading-tight uppercase">${item.titre}</p>
+                            <p class="font-black text-[11px] text-gray-800 leading-tight uppercase">${item.titre || 'Produit'}</p>
                             <p class="text-[9px] text-pink-400 font-bold mt-0.5 tracking-tight">REF #${item.reference || item.id}</p>
-                            <p class="text-pink-600 font-black text-sm mt-0.5">${parseFloat(item.prix).toFixed(2)}€</p>
+                            <p class="text-pink-600 font-black text-sm mt-0.5">${parseFloat(item.prix || 0).toFixed(2)}€</p>
                         </div>
                     </div>
                     <button onclick="supprimerArticle(${index})" class="text-gray-300 hover:text-red-500 transition-colors p-2">
@@ -125,13 +129,13 @@
             }).join('');
 
             const st = panier.reduce((sum, item) => sum + parseFloat(item.prix || 0), 0);
-            fraisPortAppliques = st >= reglagePort.gratuit_des ? 0 : reglagePort.prix;
-            totalGlobal = st + fraisPortAppliques;
+            const fraisPort = st >= reglagePort.gratuit_des ? 0 : reglagePort.prix;
+            totalGlobal = st + fraisPort;
             
             document.getElementById('total-final').innerText = totalGlobal.toFixed(2) + "€";
             document.getElementById('info-port').innerText = st >= reglagePort.gratuit_des 
                 ? "🎉 Livraison offerte !" 
-                : `Port : ${fraisPortAppliques.toFixed(2)}€ (Offert dès ${reglagePort.gratuit_des.toFixed(0)}€)`;
+                : `Port : ${fraisPort.toFixed(2)}€ (Offert dès ${reglagePort.gratuit_des.toFixed(0)}€)`;
         }
 
         async function validerCommande() {
@@ -145,16 +149,12 @@
             if (!nom || telRaw.length < 10 || !adresse) return alert("⚠️ Merci de vérifier tes coordonnées.");
 
             const btn = document.getElementById('btn-valider');
-            if (btn.disabled) return;
-
             btn.disabled = true;
             btn.innerText = "⏳ ENREGISTREMENT...";
 
-            // Préparation du contenu de la commande pour la base de données
             const listeTxt = panier.map(p => `- ${p.titre} (#${p.reference || p.id}) - ${parseFloat(p.prix).toFixed(2)}€`).join('\n');
 
             try {
-                // Sauvegarder les infos profil
                 await _supabase.from('profils').upsert({
                     email: user.email.toLowerCase(),
                     nom_prenom: nom,
@@ -162,28 +162,25 @@
                     telephone: telRaw
                 }, { onConflict: 'email' });
 
-                // Créer la commande
                 const { error } = await _supabase.from('commande').insert([{
                     client_email: user.email.toLowerCase(),
                     nom_client: nom,
                     contenu: `CLIENT: ${nom}\nTEL: ${telRaw}\nADRESSE: ${adresse}\n\nPRODUITS:\n${listeTxt}`,
                     total: totalGlobal,
                     statut: 'En attente',
-                    frais_port: fraisPortAppliques
+                    frais_port: totalGlobal >= reglagePort.gratuit_des ? 0 : reglagePort.prix
                 }]);
 
                 if (error) throw error;
 
-                // Message WhatsApp
                 const messageWA = encodeURIComponent(`Coucou Lydie ! 🌸\nJe souhaite commander :\n\n${listeTxt}\n\n*TOTAL : ${totalGlobal.toFixed(2)}€*\n\nMes coordonnées :\nNom : ${nom}\nTél : ${telRaw}\nAdresse : ${adresse}`);
                 
                 localStorage.removeItem('panier');
                 window.open(`https://wa.me/33673460409?text=${messageWA}`, '_blank');
-                
                 setTimeout(() => { window.location.href = "merci.html"; }, 500);
 
             } catch (err) {
-                alert("Erreur lors de la validation : " + err.message);
+                alert("Erreur : " + err.message);
                 btn.disabled = false;
                 btn.innerText = "Confirmer la commande";
             }
