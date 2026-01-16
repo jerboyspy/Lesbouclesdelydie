@@ -16,13 +16,15 @@
             <h1 class="text-2xl font-black italic text-pink-600">Mon Panier</h1>
         </div>
 
-        <div id="liste-panier" class="space-y-3 mb-8"></div>
+        <div id="liste-panier" class="space-y-3 mb-8">
+            <p class="text-center py-10 text-gray-400 italic">Chargement du panier...</p>
+        </div>
 
         <div class="bg-white p-6 rounded-3xl shadow-xl border border-pink-100 mb-6 space-y-4">
             <h3 class="text-center font-bold text-pink-500 uppercase text-xs tracking-widest">Tes Coordonnées</h3>
-            <input type="text" id="client-nom" placeholder="Prénom et Nom" class="w-full p-4 bg-gray-100 rounded-2xl border-none text-sm focus:ring-2 focus:ring-pink-300">
-            <input type="tel" id="client-tel" placeholder="Téléphone (ex: 06...)" class="w-full p-4 bg-gray-100 rounded-2xl border-none text-sm focus:ring-2 focus:ring-pink-300">
-            <textarea id="client-adresse" placeholder="Adresse complète (Rue, Code Postal, Ville)" class="w-full p-4 bg-gray-100 rounded-2xl border-none text-sm h-24 focus:ring-2 focus:ring-pink-300 text-gray-600"></textarea>
+            <input type="text" id="client-nom" placeholder="Prénom et Nom" class="w-full p-4 bg-gray-100 rounded-2xl border-none text-sm focus:ring-2 focus:ring-pink-300 outline-none">
+            <input type="tel" id="client-tel" placeholder="Téléphone (ex: 06...)" class="w-full p-4 bg-gray-100 rounded-2xl border-none text-sm focus:ring-2 focus:ring-pink-300 outline-none">
+            <textarea id="client-adresse" placeholder="Adresse complète (Rue, Code Postal, Ville)" class="w-full p-4 bg-gray-100 rounded-2xl border-none text-sm h-24 focus:ring-2 focus:ring-pink-300 outline-none text-gray-600"></textarea>
         </div>
 
         <div class="bg-white p-6 rounded-3xl shadow-xl border border-pink-100 space-y-3">
@@ -46,40 +48,40 @@
 
         async function chargerDonnees() {
             try {
+                // 1. Charger les réglages de port
                 const { data: stats } = await _supabase.from('statistiques').select('livraison_prix, livraison_gratuite').eq('id', 1).maybeSingle();
                 if (stats) {
                     reglagePort.prix = parseFloat(stats.livraison_prix) || 4.50;
                     reglagePort.gratuit_des = parseFloat(stats.livraison_gratuite) || 50;
                 }
 
+                // 2. Charger le panier local
                 const data = localStorage.getItem('panier');
                 panier = data ? JSON.parse(data) : [];
                 
+                // 3. Rafraîchir les infos produits (prix et surtout IMAGE) depuis la base
                 if (panier.length > 0) {
                    const ids = panier.map(p => p.id);
                    const { data: prods } = await _supabase.from('produits').select('id, image, titre, prix, reference').in('id', ids);
                    if (prods) {
                        panier = panier.map(item => {
-                           const extra = prods.find(p => p.id === item.id);
-                           return extra ? { ...item, image: extra.image, titre: extra.titre, prix: extra.prix, reference: extra.reference } : item;
+                           const bddProd = prods.find(p => p.id === item.id);
+                           return bddProd ? { ...item, ...bddProd } : item;
                        });
                    }
                 }
-            } catch (e) { panier = []; }
+            } catch (e) { console.error(e); }
+            
             afficherPanier();
 
+            // 4. Pré-remplir le profil si connecté
             const user = netlifyIdentity.currentUser();
             if (user) {
-                const { data: profil } = await _supabase
-                    .from('profils')
-                    .select('nom_prenom, adresse, telephone')
-                    .eq('email', user.email.toLowerCase())
-                    .maybeSingle();
-
+                const { data: profil } = await _supabase.from('profils').select('nom_prenom, adresse, telephone').eq('email', user.email.toLowerCase()).maybeSingle();
                 if (profil) {
-                    document.getElementById('client-nom').value = profil.nom_prenom || "";
-                    document.getElementById('client-tel').value = profil.telephone || "";
-                    document.getElementById('client-adresse').value = profil.adresse || "";
+                    if(profil.nom_prenom) document.getElementById('client-nom').value = profil.nom_prenom;
+                    if(profil.telephone) document.getElementById('client-tel').value = profil.telephone;
+                    if(profil.adresse) document.getElementById('client-adresse').value = profil.adresse;
                 }
             }
         }
@@ -100,25 +102,21 @@
             }
 
             container.innerHTML = panier.map((item, index) => {
-                // Correction de l'URL de l'image
-                let imgUrl = item.image;
-                if (imgUrl && !imgUrl.startsWith('http')) {
-                    imgUrl = `https://rsebvgdneetbbmdchwil.supabase.co/storage/v1/object/public/images/${imgUrl.split('/').pop()}`;
-                }
-
                 return `
                 <div class="flex items-center justify-between bg-white p-3 pr-4 rounded-3xl shadow-sm border border-gray-100">
                     <div class="flex items-center gap-4">
-                        <img src="${imgUrl || 'https://via.placeholder.com/100'}" 
-                             onerror="this.src='https://via.placeholder.com/100'"
-                             class="w-14 h-14 rounded-2xl object-cover shadow-sm">
+                        <div class="w-14 h-14 bg-gray-100 rounded-2xl overflow-hidden shadow-sm flex-shrink-0">
+                            <img src="${item.image || 'https://via.placeholder.com/100'}" 
+                                 class="w-full h-full object-cover"
+                                 onerror="this.src='https://via.placeholder.com/100'">
+                        </div>
                         <div>
-                            <p class="font-black text-xs text-gray-800 leading-tight">${item.titre}</p>
-                            <p class="text-[9px] text-pink-400 font-bold uppercase mt-0.5">Réf: #${item.reference || item.id}</p>
-                            <p class="text-pink-600 font-black text-sm mt-1">${parseFloat(item.prix).toFixed(2)}€</p>
+                            <p class="font-black text-[11px] text-gray-800 leading-tight uppercase">${item.titre}</p>
+                            <p class="text-[9px] text-pink-400 font-bold mt-0.5 tracking-tight">REF #${item.reference || item.id}</p>
+                            <p class="text-pink-600 font-black text-sm mt-0.5">${parseFloat(item.prix).toFixed(2)}€</p>
                         </div>
                     </div>
-                    <button onclick="supprimerArticle(${index})" class="bg-gray-50 text-gray-300 hover:text-red-500 p-2 rounded-xl transition-colors">
+                    <button onclick="supprimerArticle(${index})" class="text-gray-300 hover:text-red-500 transition-colors p-2">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
@@ -152,16 +150,11 @@
             btn.disabled = true;
             btn.innerText = "⏳ ENREGISTREMENT...";
 
-            // On prépare le texte avec les URLs d'images pour WhatsApp et la DB
-            const listeTxt = panier.map(p => {
-                let pImg = p.image;
-                if (pImg && !pImg.startsWith('http')) {
-                    pImg = `https://rsebvgdneetbbmdchwil.supabase.co/storage/v1/object/public/images/${pImg.split('/').pop()}`;
-                }
-                return `- ${p.titre} (Réf: #${p.reference || p.id}) - ${parseFloat(p.prix).toFixed(2)}€\n  Photo: ${pImg}`;
-            }).join('\n\n');
+            // Préparation du contenu de la commande pour la base de données
+            const listeTxt = panier.map(p => `- ${p.titre} (#${p.reference || p.id}) - ${parseFloat(p.prix).toFixed(2)}€`).join('\n');
 
             try {
+                // Sauvegarder les infos profil
                 await _supabase.from('profils').upsert({
                     email: user.email.toLowerCase(),
                     nom_prenom: nom,
@@ -169,6 +162,7 @@
                     telephone: telRaw
                 }, { onConflict: 'email' });
 
+                // Créer la commande
                 const { error } = await _supabase.from('commande').insert([{
                     client_email: user.email.toLowerCase(),
                     nom_client: nom,
@@ -180,25 +174,24 @@
 
                 if (error) throw error;
 
+                // Message WhatsApp
                 const messageWA = encodeURIComponent(`Coucou Lydie ! 🌸\nJe souhaite commander :\n\n${listeTxt}\n\n*TOTAL : ${totalGlobal.toFixed(2)}€*\n\nMes coordonnées :\nNom : ${nom}\nTél : ${telRaw}\nAdresse : ${adresse}`);
                 
                 localStorage.removeItem('panier');
                 window.open(`https://wa.me/33673460409?text=${messageWA}`, '_blank');
                 
-                setTimeout(() => {
-                    window.location.href = "merci.html";
-                }, 500);
+                setTimeout(() => { window.location.href = "merci.html"; }, 500);
 
             } catch (err) {
-                alert("Erreur : " + err.message);
+                alert("Erreur lors de la validation : " + err.message);
                 btn.disabled = false;
                 btn.innerText = "Confirmer la commande";
             }
         }
 
-        netlifyIdentity.on('init', user => { if (user) chargerDonnees(); });
+        netlifyIdentity.on('init', user => chargerDonnees());
         netlifyIdentity.on('login', () => chargerDonnees());
-        document.addEventListener("DOMContentLoaded", () => { setTimeout(chargerDonnees, 500); });
+        document.addEventListener("DOMContentLoaded", () => { setTimeout(chargerDonnees, 300); });
     </script>
 </body>
 </html>
