@@ -39,7 +39,6 @@
             lignes.forEach(l => {
                 const ligne = l.trim();
                 if (ligne.startsWith('-')) {
-                    // Extraction améliorée pour capturer le nom et la référence
                     const match = ligne.match(/-\s*(.*?)\s*\(.*?#(\d+)\)/i);
                     if (match) {
                         const nom = match[1].trim();
@@ -50,7 +49,7 @@
                         html += `
                         <div class="flex items-center gap-3 py-3 border-b border-gray-100 last:border-none">
                             <div class="w-16 h-16 bg-gray-100 rounded-2xl overflow-hidden flex-shrink-0 shadow-sm">
-                                ${imgUrl ? `<img src="${imgUrl}" class="w-full h-full object-cover">` : `<div class="w-full h-full flex items-center justify-center text-[8px] color-[#ccc]">REF ${ref}</div>`}
+                                ${imgUrl ? `<img src="${imgUrl}" class="w-full h-full object-cover">` : `<div class="w-full h-full flex items-center justify-center text-[8px] text-gray-300">REF ${ref}</div>`}
                             </div>
                             <div class="flex-1">
                                 <div class="flex justify-between items-start">
@@ -67,7 +66,6 @@
         }
 
         async function chargerDonneesEtCommandes(emailClient) {
-            // Chargement du catalogue pour les photos
             const { data: prods } = await _supabase.from('produits').select('id, image');
             catalogueProduits = prods || [];
 
@@ -124,17 +122,19 @@
                     </div>
 
                     <div class="bg-gray-50 p-5 rounded-[25px] border border-gray-100/50 mb-5">
-                        <p class="font-black text-[9px] uppercase text-gray-300 mb-3 tracking-widest">Articles commandés</p>
+                        <p class="font-black text-[9px] uppercase text-gray-300 mb-3 tracking-widest italic">Articles commandés :</p>
                         ${formaterContenuCommande(c.contenu)}
                     </div>
 
                     ${isValidated ? `
                     <div class="bg-blue-50 border border-blue-100 rounded-[25px] p-5 mb-5 flex items-center gap-4">
-                        <div class="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center overflow-hidden p-1">
-                            <img src="https://www.wero-pay.com/wp-content/uploads/2024/06/cropped-favicon-wero-192x192.png" class="w-full h-full object-contain">
+                        <div class="w-12 h-12 bg-blue-600 rounded-xl shadow-sm flex items-center justify-center flex-shrink-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                            </svg>
                         </div>
                         <div>
-                            <p class="text-[10px] font-black text-blue-900 uppercase">Paiement Wero</p>
+                            <p class="text-[10px] font-black text-blue-900 uppercase tracking-widest">Paiement Wero</p>
                             <p class="text-sm text-blue-600 font-black tracking-tight">06 73 46 04 09</p>
                             <p class="text-[9px] text-blue-400 font-bold leading-tight mt-0.5">Ajoute ton nom et n° de commande</p>
                         </div>
