@@ -39,34 +39,35 @@
             lignes.forEach(l => {
                 const ligne = l.trim();
                 if (ligne.startsWith('-')) {
-                    const match = ligne.match(/-\s*(.*?)\s*\(.*?#(\d+)\)\s*(?:-\s*([\d,.]+)\s*€)?/i);
+                    // Extraction améliorée pour capturer le nom et la référence
+                    const match = ligne.match(/-\s*(.*?)\s*\(.*?#(\d+)\)/i);
                     if (match) {
                         const nom = match[1].trim();
                         const ref = match[2];
-                        const prix = match[3] ? match[3] + "€" : "";
                         const produitInfos = catalogueProduits.find(p => p.id == ref);
                         const imgUrl = produitInfos ? produitInfos.image : null;
 
                         html += `
-                        <div style="display:flex; align-items:center; gap:12px; padding:8px 0; border-bottom:1px solid #f3f4f6;">
-                            <div style="width:40px; height:40px; background:#f9fafb; border-radius:8px; overflow:hidden; flex-shrink:0;">
-                                ${imgUrl ? `<img src="${imgUrl}" style="width:100%; height:100%; object-fit:cover;">` : `<div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:8px; color:#ccc;">REF ${ref}</div>`}
+                        <div class="flex items-center gap-3 py-3 border-b border-gray-100 last:border-none">
+                            <div class="w-16 h-16 bg-gray-100 rounded-2xl overflow-hidden flex-shrink-0 shadow-sm">
+                                ${imgUrl ? `<img src="${imgUrl}" class="w-full h-full object-cover">` : `<div class="w-full h-full flex items-center justify-center text-[8px] color-[#ccc]">REF ${ref}</div>`}
                             </div>
-                            <div style="flex:1;">
-                                <div style="display:flex; justify-content:between; align-items:center;">
-                                    <p style="font-size:11px; font-weight:bold; margin:0; color:#374151;">${nom}</p>
-                                    <span style="font-size:10px; font-weight:900; color:#db2777; margin-left:auto;">x1</span>
+                            <div class="flex-1">
+                                <div class="flex justify-between items-start">
+                                    <p class="text-[11px] font-black text-gray-800 leading-tight uppercase">${nom}</p>
+                                    <span class="text-pink-500 font-black text-[10px] ml-2">x1</span>
                                 </div>
-                                <p style="font-size:9px; color:#9ca3af; margin:2px 0 0 0; text-transform:uppercase; font-weight:bold;">REF #${ref} ${prix ? '• '+prix : ''}</p>
+                                <p class="text-[9px] text-gray-400 font-bold mt-1 tracking-tight">REF #${ref}</p>
                             </div>
                         </div>`;
                     }
                 }
             });
-            return html || `<p style="font-style:italic; font-size:10px; color:#999;">${texteBrut}</p>`;
+            return html || `<p class="text-[10px] text-gray-500 italic">${texteBrut}</p>`;
         }
 
         async function chargerDonneesEtCommandes(emailClient) {
+            // Chargement du catalogue pour les photos
             const { data: prods } = await _supabase.from('produits').select('id, image');
             catalogueProduits = prods || [];
 
@@ -78,7 +79,7 @@
                 .order('created_at', { ascending: false });
 
             if (error || !data || data.length === 0) {
-                container.innerHTML = "<p class='text-center py-10 italic text-gray-400'>Vous n'avez pas encore passé de commande ou reconnectez-vous.</p>";
+                container.innerHTML = "<p class='text-center py-10 italic text-gray-400'>Aucune commande trouvée.</p>";
                 return;
             }
 
@@ -89,72 +90,74 @@
                 const isClosed = c.statut === 'Clôturée';
 
                 let statusColor = "bg-orange-100 text-orange-600";
-                let borderColor = "border-gray-100";
+                let borderColor = "border-gray-200";
                 let badgeText = "";
 
                 if (isValidated) {
                     statusColor = "bg-green-100 text-green-600";
                     borderColor = "border-green-400 shadow-md";
-                    badgeText = "✨ Prêt pour paiement";
+                    badgeText = "✨ PRÊT POUR PAIEMENT";
                 } else if (isPaid) {
                     statusColor = "bg-blue-100 text-blue-600";
                     borderColor = "border-blue-200";
-                    badgeText = "💰 Paiement reçu";
+                    badgeText = "💰 PAIEMENT REÇU";
                 } else if (isShipped) {
                     statusColor = "bg-purple-100 text-purple-600";
                     borderColor = "border-purple-200";
-                    badgeText = "📦 Colis envoyé !";
+                    badgeText = "📦 COLIS ENVOYÉ !";
                 } else if (isClosed) {
                     statusColor = "bg-gray-100 text-gray-400";
                     borderColor = "border-gray-200";
-                    badgeText = "✅ Commande terminée";
+                    badgeText = "✅ COMMANDE TERMINÉE";
                 }
 
                 const messageWero = encodeURIComponent(`Bonjour Lydie, je viens de régler ma commande n°${c.id} d'un montant de ${parseFloat(c.total).toFixed(2)}€ via Wero. Merci !`);
-                const messageRecu = encodeURIComponent(`Coucou Lydie ! 🌸 Je viens de recevoir ma commande n°${c.id}. Les bijoux sont magnifiques, merci beaucoup ! 😍`);
+                const messageRecu = encodeURIComponent(`Coucou Lydie ! 🌸 Je viens de recevoir ma commande n°${c.id}. Merci beaucoup ! 😍`);
                 
                 return `
-                <div class="bg-white p-6 rounded-[30px] border-2 ${borderColor} relative transition-all ${isClosed ? 'opacity-60' : ''}">
-                    ${badgeText ? `<span class="absolute -top-3 left-6 ${statusColor.replace('100', '500').replace('text-', 'bg-')} text-white text-[9px] px-3 py-1 rounded-full font-black uppercase shadow-sm">${badgeText}</span>` : ''}
+                <div class="bg-white p-6 rounded-[35px] border-2 ${borderColor} relative transition-all mb-4 ${isClosed ? 'opacity-60' : ''}">
+                    ${badgeText ? `<span class="absolute -top-3 left-6 ${isValidated ? 'bg-green-500' : 'bg-gray-400'} text-white text-[9px] px-4 py-1 rounded-full font-black tracking-widest shadow-sm">${badgeText}</span>` : ''}
                     
-                    <div class="flex justify-between items-start mb-4">
-                        <span class="text-[10px] text-gray-400 font-bold uppercase">${new Date(c.created_at).toLocaleDateString('fr-FR')}</span>
+                    <div class="flex justify-between items-start mb-6 pt-2">
+                        <span class="text-[10px] text-gray-400 font-bold uppercase tracking-tighter">${new Date(c.created_at).toLocaleDateString('fr-FR')}</span>
                         <span class="px-3 py-1 rounded-full text-[9px] font-black uppercase ${statusColor}">${c.statut}</span>
                     </div>
 
-                    <div class="bg-gray-50 p-4 rounded-2xl border border-gray-100/50 mb-4">
-                        <p class="font-bold text-[9px] uppercase text-gray-400 mb-2 tracking-widest italic">Articles commandés :</p>
+                    <div class="bg-gray-50 p-5 rounded-[25px] border border-gray-100/50 mb-5">
+                        <p class="font-black text-[9px] uppercase text-gray-300 mb-3 tracking-widest">Articles commandés</p>
                         ${formaterContenuCommande(c.contenu)}
                     </div>
 
                     ${isValidated ? `
-                    <div class="bg-blue-50 border border-blue-100 rounded-2xl p-4 mb-4 flex items-center gap-4">
-                        <img src="https://static.moneyvox.fr/media/01/00/01/29/wero-logo.jpg" class="w-12 h-12 rounded-lg object-contain bg-white p-1 shadow-sm" alt="Wero">
+                    <div class="bg-blue-50 border border-blue-100 rounded-[25px] p-5 mb-5 flex items-center gap-4">
+                        <div class="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center overflow-hidden p-1">
+                            <img src="https://www.wero-pay.com/wp-content/uploads/2024/06/cropped-favicon-wero-192x192.png" class="w-full h-full object-contain">
+                        </div>
                         <div>
-                            <p class="text-[10px] font-black text-blue-800 uppercase leading-none">Paiement Wero</p>
-                            <p class="text-xs text-blue-600 font-bold mt-1">06 73 46 04 09</p>
-                            <p class="text-[9px] text-blue-400 italic">Ajoute ton nom et n° de commande</p>
+                            <p class="text-[10px] font-black text-blue-900 uppercase">Paiement Wero</p>
+                            <p class="text-sm text-blue-600 font-black tracking-tight">06 73 46 04 09</p>
+                            <p class="text-[9px] text-blue-400 font-bold leading-tight mt-0.5">Ajoute ton nom et n° de commande</p>
                         </div>
                     </div>
                     ` : ''}
 
-                    <div class="flex justify-between items-center font-black ${isValidated ? 'text-green-600 text-xl' : 'text-pink-600 text-lg'}">
-                        <span class="text-xs uppercase opacity-50 text-gray-500">Total réglé</span>
-                        <span>${parseFloat(c.total).toFixed(2)}€</span>
+                    <div class="flex justify-between items-center mb-6 px-2">
+                        <span class="text-[11px] font-black uppercase text-gray-400 tracking-widest">Total réglé</span>
+                        <span class="text-2xl font-black ${isValidated ? 'text-green-600' : 'text-pink-600'}">${parseFloat(c.total).toFixed(2)}€</span>
                     </div>
 
-                    <div class="mt-4 pt-4 border-t border-gray-50 flex flex-wrap gap-2">
-                        <a href="/suivi.html?id=${c.id}" class="flex-1 text-center bg-gray-100 hover:bg-gray-200 py-3 rounded-xl text-[10px] text-gray-500 uppercase font-black transition">
+                    <div class="flex gap-3">
+                        <a href="/suivi.html?id=${c.id}" class="flex-1 bg-gray-100 text-center py-4 rounded-2xl text-[10px] font-black text-gray-500 uppercase tracking-widest hover:bg-gray-200 transition">
                             🔍 Suivi
                         </a>
                         
                         ${isValidated ? `
-                        <a href="https://wa.me/33673460409?text=${messageWero}" class="flex-1 text-center bg-green-500 text-white py-3 rounded-xl text-[10px] uppercase font-black shadow-sm active:scale-95 transition">
+                        <a href="https://wa.me/33673460409?text=${messageWero}" class="flex-1 bg-green-500 text-center py-4 rounded-2xl text-[10px] font-black text-white uppercase tracking-widest shadow-lg shadow-green-100 active:scale-95 transition">
                             💬 Envoyer Wero
                         </a>` : ''}
 
                         ${isShipped ? `
-                        <button onclick="cloturerCommande('${c.id}', '${messageRecu}')" class="w-full bg-pink-500 text-white py-3 rounded-xl text-[10px] uppercase font-black shadow-lg active:scale-95 transition">
+                        <button onclick="cloturerCommande('${c.id}', '${messageRecu}')" class="w-full bg-pink-500 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-pink-100 active:scale-95 transition">
                             🎁 Colis bien reçu !
                         </button>` : ''}
                     </div>
@@ -164,11 +167,11 @@
         }
 
         async function cloturerCommande(id, message) {
-            if(confirm("Confirmer la réception de votre colis ? Cela clôturera la commande et informera Lydie.")){
+            if(confirm("Confirmer la réception de votre colis ?")){
                 const { error } = await _supabase
                     .from('commande')
                     .update({ statut: 'Clôturée' })
-                    .eq(id, id);
+                    .eq('id', id);
                 
                 if(!error) {
                     window.location.href = `https://wa.me/33673460409?text=${message}`;
